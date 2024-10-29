@@ -1,0 +1,37 @@
+MODEL:
+  VID:
+    METHOD: "mega"
+    ROI_BOX_HEAD:
+      ATTENTION:
+        ENABLE: True
+        STAGE: 3
+  META_ARCHITECTURE: "GeneralizedRCNNMEGA"
+  # WEIGHT: "catalog://ImageNetPretrained/MSRA/R-101"
+  WEIGHT: "./ckpts/model_0150000_freq5_ours.pth"
+  # WEIGHT: "/media/b3-542/group3/jxj/Datasets/VideoRelation/VidVRD/Big/mega_ckpts/COCO21VRDfreq5_2gpu_finetune_lr1/model_0207500.pth"
+
+  BACKBONE:
+    CONV_BODY: "R-101-C4"
+  ROI_BOX_HEAD:
+    FEATURE_EXTRACTOR: "MEGAFeatureExtractor"
+    PREDICTOR: "FPNPredictor"
+DATASETS:
+  # TRAIN: ("COCO_train_21classes", "COCO_val_21classes", "VidVRDtrain_freq1")
+  # 62381 + 30302 + 75390 = 1680373 16.8w
+  TRAIN: ("VidVRDtrain_freq5",)
+  # 15078
+  TEST: ("VidVRDval_freq1",)
+
+DATALOADER:
+  NUM_WORKERS: 4 # 4
+  
+SOLVER:
+  BASE_LR: 0.001
+  WEIGHT_DECAY: 0.0001
+  STEPS: (100000, ) #100000
+  MAX_ITER: 210000 # 150000
+  IMS_PER_BATCH: 2    # 2 this config file uses 2 GPUs
+  WARMUP_ITERS: 500
+TEST:
+  IMS_PER_BATCH: 2
+  DETECTIONS_PER_IMG: 300

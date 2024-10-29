@@ -1,0 +1,19 @@
+/datasets/mega/ckpts/*
+/remove_unnecessary.sh
+/VidVRD_helper
+/temp.py
+
+# datasets
+/datasets/vidor/annotations
+/datasets/vidor/frames
+/datasets/vidor/videos
+/datasets/vidor/features
+
+/datasets/gt_json_eval
+
+
+/experiments
+/ckpts
+
+# pycache
+**/__pycache__

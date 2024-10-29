@@ -1,0 +1,129 @@
+## model
+model_config: 
+  visual_dim: 1024
+  bbox_entity_dim: 8
+  bbox_so_dim: 5
+  embd_dim: 512
+  num_classes: 50
+  backbone_arch: [2, 2, 3]
+  scale_factor: 2
+  fpn_start_level: 0
+  max_seq_len: 512
+  n_mha_win_size: 9
+  use_abs_pe: False
+  use_rel_pe: False
+  use_local: False
+  max_so_pair: 200
+  visual_bbox_fuse_kernel_size: 1
+  so_fuse_kernel_size: 1
+  fuse_head: 8
+  fuse_qx_stride: 1
+  fuse_kv_stride: 1
+  fuse_path_drop: 0.1
+  n_head: 8
+  embd_kernel_size: 3
+  embd_with_ln: True
+  dropattn: 0.0
+  dropout: 0.0
+  droppath: 0.1
+  fpn_dim: 256
+  fpn_with_ln: True
+  fpn_norm_first: True
+  loss_types: ['labels', 'masks']
+
+  predictor:
+    n_input: 512
+    n_embd: 256
+    n_head: 8
+    n_hidden: 1024
+    num_queries: 9
+    num_classes: 50
+    attn_pdrop: 0.0
+    proj_pdrop: 0.0
+    path_pdrop: 0.1
+    cls_prior_prob: 0.01
+    n_qx_stride: 0
+    n_kv_stride: 1
+    num_layers: 4
+    deep_supervision: True
+    enforce_input_project: False
+
+  cost_coeff_dict:
+    cost_class: 2.0
+    cost_mask: 2.0
+    cost_dice: 5.0
+
+  loss_coeff_dict: 
+    eos_coef: 0.1
+    loss_class: 2.0
+    loss_mask: 2.0
+    loss_dice: 5.0
+
+## data
+dataset_config:
+  ann_dir: "./datasets/vidor/annotations"
+  info_dir: "./datasets/vidor/features/vidor_per_video_val"
+  policy_path: './datasets/policies/vidor_policy.txt'
+  gt_boxfeatures_dir: "./datasets/vidor/features/GT_boxfeatures_training"
+  cache_dir: '/home/jiangxinjie/Workshop/vidvrd/VidVRD_mask/datasets/cache/vidor/MEGA_mask_VidOR_validation'
+  cache_tag: "MEGA_mask"
+  dim_visualfeature: 1024
+  dim_wordfeature: 300
+  min_frames_th: 15
+  max_proposal: 180
+  max_preds: 200
+  score_th: 0.4
+  feat_stride: 4
+  max_seq_len: 512
+
+training_dataset_config:
+  split: "training"
+  cut_max_preds: True
+  proposal_max_preds: 9
+  num_pairs: 16 # change num pairs and batch size
+
+test_dataset_config:
+  split: "validation"
+  proposal_min_frames: 5
+  shift: True
+  random_stride: True
+  stride_offset: 0
+
+## training
+training_config:
+  batch_size: 3 # change num pairs and batch size
+  training_epoch: 12 # total training epochs
+  total_epoch: 20
+  training_lr: 0.0002
+  seed: 42 
+  num_workers: 4
+  log_interval: 20
+  save_interval: 1
+  eval_start_epoch: 3
+  clip_grad_l2norm: 1.0
+  warmup: True
+  warmup_epochs: 5
+  type: "AdamW"
+  momentum: 0.9
+  weight_decay: 0.05
+  schedule_type: "cosine"
+  schedule_gamma: 0.1
+  schedule_steps: [10]
+
+## inf
+inference_config:
+  topk: 1
+  feat_stride: 4
+  pred_min_frames: 5
+  n_max_pair: 200
+  viou_th: 0.5
+
+## gt
+prepare_gt_config:
+  gt_relations_path: "./datasets/gt_json_eval/vidor_val_gts.json"
+
+  dataset_config:
+    anno_rpath: "./datasets/vidor/annotations"
+    video_rpath: "./datasets/vidor/videos"
+    splits: ["validation"]
+    low_memory: False

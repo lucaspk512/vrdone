@@ -1,0 +1,8 @@
+tqdm
+numpy==1.26.4
+scipy
+pandas
+opencv-python
+matplotlib
+yacs
+pycocotools

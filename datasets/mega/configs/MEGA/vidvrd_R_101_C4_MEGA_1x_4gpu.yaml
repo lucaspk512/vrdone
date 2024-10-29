@@ -1,0 +1,32 @@
+MODEL:
+  VID:
+    METHOD: "mega"
+    ROI_BOX_HEAD:
+      ATTENTION:
+        ENABLE: True
+        STAGE: 3
+  META_ARCHITECTURE: "GeneralizedRCNNMEGA"
+  WEIGHT: "catalog://ImageNetPretrained/MSRA/R-101"
+  BACKBONE:
+    CONV_BODY: "R-101-C4"
+  ROI_BOX_HEAD:
+    FEATURE_EXTRACTOR: "MEGAFeatureExtractor"
+    PREDICTOR: "FPNPredictor"
+DATASETS:
+  TRAIN: ("COCO_train_21classes", "COCO_val_21classes", "VidVRDtrain_freq2")
+  # 62381 + 30302 + 37659 = 130414 13.0w
+  TEST: ("VidVRDval_freq1",)
+
+# DATALOADER:
+#   NUM_WORKERS: 0 # 4
+
+SOLVER:
+  BASE_LR: 0.001
+  WEIGHT_DECAY: 0.0001
+  STEPS: (120000, ) #100000
+  MAX_ITER: 180000 # 150000
+  IMS_PER_BATCH: 4    # 2 this config file uses 2 GPUs
+  WARMUP_ITERS: 500
+TEST:
+  IMS_PER_BATCH: 4
+  DETECTIONS_PER_IMG: 300
