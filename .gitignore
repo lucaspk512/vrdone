@@ -1,6 +1,6 @@
 !.gitkeep
 
-/datasets/mega/ckpts/*
+/datasets/mega/ckpts/model_0180000.pth
 /remove_unnecessary.sh
 /VidVRD_helper
 /temp.py
