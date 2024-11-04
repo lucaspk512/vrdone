@@ -1,3 +1,5 @@
+!.gitkeep
+
 /datasets/mega/ckpts/*
 /remove_unnecessary.sh
 /VidVRD_helper
