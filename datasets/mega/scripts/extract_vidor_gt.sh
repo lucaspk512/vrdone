@@ -2,6 +2,8 @@
 
 gpu=$1
 
+echo "Extracting features..."
+
 for i in {0..699}
 do
     python -W ignore extract_gt_features_vidor.py \

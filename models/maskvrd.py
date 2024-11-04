@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from .backbones import MaskConvTransformerBackbone
+from .backbones import MaskConvTransformerBackbone, MaskConvTransformerBackboneWithCLIP
 from .fpns import FPN1D_Fuse
 from .predictor import MaskedTransformerPredictor
 from .losses import batch_masked_sigmoid_focal_loss, batch_masked_dice_loss
@@ -20,6 +20,7 @@ class MaskVRD(nn.Module):
 
         ## 1. config
         self.visual_dim = config['visual_dim']
+        self.clip_dim = config['clip_dim']
         self.bbox_entity_dim = config['bbox_entity_dim']
         self.bbox_so_dim = config['bbox_so_dim']
         self.embd_dim = config['embd_dim']
@@ -60,32 +61,60 @@ class MaskVRD(nn.Module):
 
 
         ## 2.backbone
-        self.backbone = MaskConvTransformerBackbone(
-            n_visual = self.visual_dim,
-            n_bbox_entity = self.bbox_entity_dim,
-            n_bbox_so = self.bbox_so_dim,
-            n_embd = self.embd_dim,
-            n_head = config['n_head'],
-            n_embd_ks = config['embd_kernel_size'],
-            visual_bbox_ks = config['visual_bbox_fuse_kernel_size'],
-            so_fuse_kernel_size = config['so_fuse_kernel_size'],
-            n_fuse_head = config['fuse_head'],
-            fuse_path_drop = config['fuse_path_drop'],
-            fuse_qx_stride = config['fuse_qx_stride'],
-            fuse_kv_stride = config['fuse_kv_stride'],
-            max_len = self.max_seq_len,
-            arch = self.backbone_arch,
-            mha_win_size = self.mha_win_size,
-            scale_factor = self.scale_factor,
-            with_ln = config['embd_with_ln'],
-            attn_pdrop = config['dropattn'],
-            proj_pdrop = config['dropout'],
-            path_pdrop = config['droppath'],
-            use_abs_pe = self.use_abs_pe,
-            use_rel_pe = self.use_rel_pe,
-            use_local = config['use_local'],
-        )
-    
+        self.with_clip_feature = config['with_clip_feature']
+        if not self.with_clip_feature:
+            self.backbone = MaskConvTransformerBackbone(
+                n_visual = self.visual_dim,
+                n_bbox_entity = self.bbox_entity_dim,
+                n_bbox_so = self.bbox_so_dim,
+                n_embd = self.embd_dim,
+                n_head = config['n_head'],
+                n_embd_ks = config['embd_kernel_size'],
+                fuse_ks = config['fuse_ks'],
+                n_fuse_head = config['fuse_head'],
+                fuse_path_drop = config['fuse_path_drop'],
+                fuse_qx_stride = config['fuse_qx_stride'],
+                fuse_kv_stride = config['fuse_kv_stride'],
+                max_len = self.max_seq_len,
+                arch = self.backbone_arch,
+                mha_win_size = self.mha_win_size,
+                scale_factor = self.scale_factor,
+                with_ln = config['embd_with_ln'],
+                attn_pdrop = config['dropattn'],
+                proj_pdrop = config['dropout'],
+                path_pdrop = config['droppath'],
+                use_abs_pe = self.use_abs_pe,
+                use_rel_pe = self.use_rel_pe,
+                use_local = config['use_local'],
+            )
+        
+        else:
+            self.backbone = MaskConvTransformerBackboneWithCLIP(
+                n_visual = self.visual_dim,
+                n_clip = self.clip_dim,
+                n_bbox_entity = self.bbox_entity_dim,
+                n_bbox_so = self.bbox_so_dim,
+                n_embd = self.embd_dim,
+                n_head = config['n_head'],
+                n_embd_ks = config['embd_kernel_size'],
+                fuse_ks = config['fuse_ks'],
+                n_fuse_head = config['fuse_head'],
+                fuse_path_drop = config['fuse_path_drop'],
+                fuse_qx_stride = config['fuse_qx_stride'],
+                fuse_kv_stride = config['fuse_kv_stride'],
+                max_len = self.max_seq_len,
+                arch = self.backbone_arch,
+                mha_win_size = self.mha_win_size,
+                scale_factor = self.scale_factor,
+                with_ln = config['embd_with_ln'],
+                attn_pdrop = config['dropattn'],
+                proj_pdrop = config['dropout'],
+                path_pdrop = config['droppath'],
+                use_abs_pe = self.use_abs_pe,
+                use_rel_pe = self.use_rel_pe,
+                use_local = config['use_local'],
+            )
+
         if isinstance(self.embd_dim, (list, tuple)):
             self.embd_dim = sum(self.embd_dim)
 

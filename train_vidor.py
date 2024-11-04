@@ -44,6 +44,7 @@ def main():
 
     ## update config
     config['training_config']['seed'] = args.seed
+    config['model_config']['with_clip_feature'] = config['dataset_config']['with_clip_feature']
     config['dataset_config'].update(config['training_dataset_config'])
 
     ## DDP init
@@ -77,18 +78,18 @@ def main():
     )
 
     num_workers = config['training_config']["num_workers"]
-    batch_size = config['training_config']["batch_size"] * args.world_size * config['training_dataset_config']['num_pairs']
-    logger.info(f"Batch size: {batch_size}")
+    batch_size = config['training_config']["batch_size"]
+    assert batch_size % args.world_size == 0, f"batch size {batch_size} should be divided by world size {args.world_size}"
+    logger.info(f"Batch size: {batch_size * config['training_dataset_config']['num_pairs']}")
 
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=config['training_config']["batch_size"],
+        batch_size=config['training_config']["batch_size"] // args.world_size,
         collate_fn=dataset.collator_func,
         sampler=sampler,
         num_workers=num_workers,
         pin_memory=True,
     )
-
 
     ## construct model
     device = f"cuda:{args.local_rank}"

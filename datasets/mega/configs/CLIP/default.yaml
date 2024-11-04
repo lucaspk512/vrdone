@@ -1,0 +1,20 @@
+device: cuda
+
+vidor:
+  frame_path: ../vidor/frames
+  annotation_path: ../vidor/annotations
+  proposal_path: ../vidor/features/vidor_per_video_val
+
+vidvrd:
+  frame_path: ../vidvrd/frames
+  annotation_path: ../vidvrd/annotations
+  proposal_path: ../vidvrd/features/vidvrd_per_video_val
+
+clip:
+  output_path_vidor_train: ../vidor/features/clip_features_training
+  output_path_vidor_test: ../vidor/features/clip_val_proposal
+  output_path_vidvrd_train: ../vidvrd/features/clip_features_training
+  output_path_vidvrd_test: ../vidvrd/features/clip_val_proposal
+  batch_size: 4
+  num_workers: 4
+

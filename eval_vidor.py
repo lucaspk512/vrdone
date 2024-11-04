@@ -24,9 +24,9 @@ def parse_args():
     # control
     parser.add_argument("--cfg_path", type=str, help="...")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
+    parser.add_argument("--exp_dir", type=str)
     parser.add_argument("--ckpt_path", type=str, help="ckpt path to evaluate")
     parser.add_argument("--eval_exp_dir", default=False, action="store_true", help="the dir saving all ckpts")
-    parser.add_argument("--exp_dir", type=str)
     parser.add_argument("--scale", default=None, type=int)
     parser.add_argument("--eval_start_epoch", type=int, default=3)
     parser.add_argument("--epochs", type=int)
@@ -49,6 +49,7 @@ def evaluate():
     config['training_config']['training_epoch'] = args.epochs
     config['training_config']['eval_start_epoch'] = args.eval_start_epoch
     config['inference_config']['topk'] = args.topk
+    config['model_config']['with_clip_feature'] = config['dataset_config']['with_clip_feature']
     config['dataset_config'].update(config['test_dataset_config'])
 
     ## set seed

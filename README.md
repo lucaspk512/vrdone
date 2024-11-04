@@ -14,18 +14,17 @@ Pytorch Implementation of ACM MM 2024 paper **"VrdONE: One-stage Video Visual Re
   <img src="./assets/pipeline.png" width="100%" height="100%"/>
 </div><br/>
 
-## VrdONE
 
-### Abstract
+## Abstract
 
 Video Visual Relation Detection (VidVRD) focuses on understanding how entities interact over time and space in videos, a key step for gaining deeper insights into video scenes beyond basic visual tasks. Traditional methods for VidVRD, challenged by its complexity, typically split the task into two parts: one for identifying what relation categories are present and another for determining their temporal boundaries. This split overlooks the inherent connection between these elements. Addressing the need to recognize entity pairs' spatiotemporal interactions across a range of durations, we propose VrdONE, a streamlined yet efficacious one-stage model. VrdONE combines the features of subjects and objects, turning predicate detection into 1D instance segmentation on their combined representations. This setup allows for both relation category identification and binary mask generation in one go, eliminating the need for extra steps like proposal generation or post-processing. VrdONE facilitates the interaction of features across various frames, adeptly capturing both short-lived and enduring relations. Additionally, we introduce the Subject-Object Synergy (SOS) module, enhancing how subjects and objects perceive each other before combining. VrdONE achieves state-of-the-art performances on the VidOR benchmark and ImageNet-VidVRD, showcasing its superior capability in discerning relations across different temporal scales.
 
-### Todo List
+## Todo List
 - [x] Installation
 - [x] prepare VidOR dataset
 - [ ] prepare ImageNet-VidVRD datset
-- [ ] train VrdONE on VidOR
-- [ ] train VrdONE-X on VidOR
+- [X] train VrdONE on VidOR
+- [X] train VrdONE-X on VidOR
 - [ ] train VrdONE on ImageNet-VidVRD
 - [x] evaluate VrdONE on VidOR
 - [ ] evaluate VrdONE on ImageNet-VidVRD
@@ -42,11 +41,12 @@ Video Visual Relation Detection (VidVRD) focuses on understanding how entities i
 
 ## Data Preparation
 
-Install `ffmpeg` using `sudo apt-get install ffmpeg` and the organization of datasets should be like this:
+Install `ffmpeg` using `sudo apt-get install ffmpeg`. The organization of datasets should be like this:
 
 ```
 
 ├── datasets
+│   ├── mega
 │   ├── vidor
 │   │   ├── annotations
 |   |   |   ├── training
@@ -57,7 +57,14 @@ Install `ffmpeg` using `sudo apt-get install ffmpeg` and the organization of dat
 |   |   |       ├── 0001
 |   |   |       ├── ...
 |   |   |       └── 1203
+|   |   ├── cache
+|   |   |   ├── MEGA_mask_clip_VidOR_training
+|   |   |   ├── MEGA_mask_clip_VidOR_validation
+|   |   |   ├── MEGA_mask_VidOR_training
+|   |   |   └── MEGA_mask_VidOR_validation
 |   |   ├── features
+|   |   |   ├── clip_features_training
+|   |   |   ├── clip_val_proposal
 |   |   |   ├── GT_boxfeatures_training
 |   |   |   ├── MEGA_VidORval_cache
 |   |   |   |   └─ MEGAv9_m60s0.3_freq1_VidORval_freq1_th_15-180-200-0.40.pkl
@@ -67,13 +74,19 @@ Install `ffmpeg` using `sudo apt-get install ffmpeg` and the organization of dat
 |   |       ├── 0000
 |   |       ├── ...
 |   |       └── 1203
-|   ├── gt_json_eval    
+|   ├── VidSGG-BIG 
+|   ├── vidor_policy.txt
+|   └── vidor_video_to_frames.py
+├── models
+...
+├── VidVRD_helper
+...
 ```
 
 
 ### VidOR
 
-1. Download the [VidOR](https://xdshang.github.io/docs/vidor.html), unzip all videos (training and validation) into `datasets/vidor/videos`. Unzip the training and validation annoatations into `datasets/vidor/annotations`.
+1. Download the [VidOR](https://xdshang.github.io/docs/vidor.html) dataset, unzip all videos (training and validation) into `datasets/vidor/videos`. Unzip the training and validation annotations into `datasets/vidor/annotations`.
 2. Go to the `datasets` directory and run the following command to decode the videos into frames.
    ```
    python vidor_video_to_frames.py
@@ -82,40 +95,74 @@ Install `ffmpeg` using `sudo apt-get install ffmpeg` and the organization of dat
    ```
    bash scripts/extract_vidor_gt.sh [gpu_id]
    ```
+   Or we can download our extracted features from [Hugging Face](https://huggingface.co/datasets/guacamole99/vrdone_features) and unzip it into the corresponding place.
 4. Download the [extracted proposal features of validation set](https://mega.nz/folder/VcwA1DaI#YW2M_uFsbsE6twHDIpfPuw) from [Gao's method (BIG)](https://github.com/Dawn-LX/VidSGG-BIG). Then, put it into `datasets/vidor/features/MEGA_VidORval_cache`. We copy the `dataloader` part from [BIG](https://github.com/Dawn-LX/VidSGG-BIG). Step into `datasets/VidSGG-BIG` and divide the proposal features into per-video ones by the following command:
    ```
    python prepare_vidor_proposal.py
    ```
+5. [Optional] For the vrdone-x, we need to extract the clip features. First, step into the repository of [CLIP](https://github.com/openai/CLIP) and install it. Second, extract the features for training and evaluation respectively. We step into `datasets/mega`, run
+   ```
+   bash extract_vidor_clip_gt.sh [gpu_id]
+   ```
+   and
+   ```
+   bash extract_vidor_clip_val.sh [gpu_id]
+   ```
+   Or we can download our extracted features from [Hugging Face](https://huggingface.co/datasets/guacamole99/vrdone_features) and unzip them into the corresponding places.
 
 ### VidVRD
 
 Coming soon ...
 
 ## Train 
-Coming soon...
+1. **VrdONE for vidor**. Train with a single gpu.
+   ```
+   bash scripts/train_vidor.sh 1 [gpu_id]
+   ```
+   Change the `batch_size` in the config and train the model with multiple gpus.
+   ```
+   bash scripts/train_vidor.sh [num_gpus] [gpu_ids]
+   ```
+1. **VrdONE-X for vidor**. Train with a single gpu.
+   ```
+   bash scripts/train_vidor_x.sh 1 [gpu_id]
+   ```
+   Change the `batch_size` in the config and train the model with multiple gpus.
+   ```
+   bash scripts/train_vidor_x.sh [num_gpus] [gpu_ids]
+   ```
 
 ## Eval
+1. **VrdONE for vidor**. Download our vrdone checkpoint and evaluate with the following command.
+   ```
+   bash scripts/eval_vidor_ckpt.sh [gpu_id]
+   ```
+   If we trained our own model, we can evaluate all trained checkpoints.
+   ```
+   bash scripts/eval_vidor_multiple.sh [gpu_id]
+   ```
+   We can change the `topk` and the `ckpt_path` to check.
 
-1. **VidOR**: download the vrdone ckpt and run the command:
-    ```
-    python eval_vidor.py \
-        --cfg_path configs/vidor.yaml \
-        --exp_dir experiments/vrdone_vidor \
-        --ckpt_path ckpts/ckpt_vidor.pth \
-        --topk 1 \
-    ```
-    or just run the scripts:
-    ```
-    bash scripts/eval_vidor.sh [gpu_id]
-    ```
+2. **VrdONE-X for vidor**. Download our vrdone-x checkpoint and evaluate with the following command.
+   ```
+   bash scripts/eval_vidor_x_ckpt.sh [gpu_id]
+   ```
+   If we trained our own model, we can evaluate all trained checkpoints.
+   ```
+   bash scripts/eval_vidor_x_multiple.sh [gpu_id]
+   ```
+   We can change the `topk` and the `ckpt_path` to check.
 
 ## Model Zoo
+Hugging Face model repository: https://huggingface.co/guacamole99/vrdone
+
+Hugging Face dataset repository: https://huggingface.co/datasets/guacamole99/vrdone_features
+
 | Model | Dataset | Extra Features | Download Path |
 |-------|---------------|-------| ---------------|
-|VrdONE | VidOR | - | [Hugging Face](https://huggingface.co/guacamole99/vrdone_vidor)|
-|VrdONE-X | VidOR | CLIP |  |
+|VrdONE | VidOR | - | [Hugging Face](https://huggingface.co/guacamole99/vrdone)|
+|VrdONE-X | VidOR | CLIP | [Hugging Face](https://huggingface.co/guacamole99/vrdone) |
 |VrdONE | ImageNet-VidVRD | - | |
-
 
 ## Citation
 ```

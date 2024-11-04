@@ -1,9 +1,4 @@
-# ====================================================
-# This code is added by Kaifeng Gao (kite_phone@zju.edu.cn)
-# ====================================================
-
 import json
-
 from VidVRD_helper.dataset import VidVRD, VidOR
 
 def prepare_gts_for_vidvrd(config):

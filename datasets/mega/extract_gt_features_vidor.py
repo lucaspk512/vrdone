@@ -20,6 +20,7 @@ from feature_extractor_vidor import FeatureExtractor
 
 GROUP_MIN = 0
 GROUP_MAX = 699
+BASE_CONFIG = "configs/BASE_RCNN_1gpu.yaml"
 
 def set_worker_sharing_strategy(worker_id: int) -> None:
     torch.multiprocessing.set_sharing_strategy("file_system")
@@ -33,7 +34,6 @@ def extract_VidOR_gt_features(part_id, gpu_id, args):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    BASE_CONFIG = "configs/BASE_RCNN_1gpu.yaml"
     cfg.merge_from_file(BASE_CONFIG)
     cfg.merge_from_file(args.config_file)
 

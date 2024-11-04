@@ -1,3 +1,7 @@
+# ====================================================
+# This code is modified by Xinjie Jiang (jiangxinjie512@gmail.com)
+# ====================================================
+
 # Copyright (c) Facebook, Inc. and its affiliates.
 # Modified by Bowen Cheng from: https://github.com/facebookresearch/detr/blob/master/models/detr.py
 import math

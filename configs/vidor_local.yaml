@@ -13,7 +13,7 @@ model_config:
   n_mha_win_size: 9
   use_abs_pe: False
   use_rel_pe: False
-  use_local: False
+  use_local: True
   max_so_pair: 200
   fuse_ks: 1
   fuse_head: 8
@@ -115,7 +115,7 @@ training_config:
 
 ## inf
 inference_config:
-  topk: 6
+  topk: 1
   feat_stride: 4
   pred_min_frames: 5
   n_max_pair: 200

@@ -4,16 +4,10 @@
 /temp.py
 
 # datasets
-/datasets/vidor/annotations
-/datasets/vidor/frames
-/datasets/vidor/videos
-/datasets/vidor/features
-
-/datasets/gt_json_eval
-
+/datasets/vidor
+/datasets/vidor_val_gts.json
 
 /experiments
-/ckpts
 
 # pycache
 **/__pycache__

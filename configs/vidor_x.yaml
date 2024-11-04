@@ -36,7 +36,7 @@ model_config:
     n_embd: 256
     n_head: 8
     n_hidden: 1024
-    num_queries: 9
+    num_queries: 10
     num_classes: 50
     attn_pdrop: 0.0
     proj_pdrop: 0.0
@@ -68,7 +68,7 @@ dataset_config:
   clip_training_features_dir: "./datasets/vidor/features/clip_features_training"
   clip_val_proposal_features_dir: "./datasets/vidor/features/clip_val_proposal"
   cache_dir: './datasets/vidor/cache'
-  cache_tag: "MEGA_mask"
+  cache_tag: "MEGA_mask_clip"
   dim_visualfeature: 1024
   dim_wordfeature: 300
   min_frames_th: 15
@@ -77,13 +77,13 @@ dataset_config:
   score_th: 0.4
   feat_stride: 4
   max_seq_len: 512
-  with_clip_feature: False
+  with_clip_feature: True
 
 training_dataset_config:
   split: "training"
   cut_max_preds: True
-  proposal_max_preds: 9
-  num_pairs: 16 # change num pairs and batch size
+  proposal_max_preds: 10
+  num_pairs: 20 # change num pairs and batch size
 
 test_dataset_config:
   split: "validation"
@@ -94,7 +94,7 @@ test_dataset_config:
 
 ## training
 training_config:
-  batch_size: 3 # change num pairs and batch size
+  batch_size: 2 # change num pairs and batch size
   training_epoch: 12 # total training epochs
   total_epoch: 20
   training_lr: 0.0002

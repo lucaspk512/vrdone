@@ -37,8 +37,11 @@ class VidOR(data.Dataset):
         self.cache_dir = config['cache_dir']
         self.policy_path = config['policy_path']
         self.gt_boxfeatures_dir = config['gt_boxfeatures_dir']
+        self.clip_training_features_dir = config['clip_training_features_dir']
+        self.clip_val_proposal_features_dir = config['clip_val_proposal_features_dir']
 
         ## config
+        self.with_clip_feature = config['with_clip_feature']
         self.feat_stride = config['feat_stride']
         self.max_seq_len = config['max_seq_len']
 
@@ -98,17 +101,19 @@ class VidOR(data.Dataset):
         """
         not very elegant
         """
-        print("Processing data into cache files at cache path: {}".format(self.cache_path))
+        print("Processing data into cache files. Cache path: {}".format(self.cache_path))
         if self.split == 'training':
             ## generate cache
             for video_name in tqdm(self.video_name_list):
-                if (not os.path.exists(os.path.join(self.cache_path, video_name+'.pkl'))):
+                if not os.path.exists(os.path.join(self.cache_path, video_name+'.pkl')):
                     data_ = self._prepare_cache(video_name)
                     with open(os.path.join(self.cache_path, video_name+'.pkl'), 'wb') as f:
                         pickle.dump(data_, f)
 
             ## calculate the number of pairs for each video
             if not os.path.exists(self.policy_path):
+                print("Policy does not exists. Generating...")
+
                 if self.scale:
                     raise ValueError("Remove `scale` and use the whole dataset to generate the policy application file!!!")
 
@@ -125,6 +130,7 @@ class VidOR(data.Dataset):
                         pf.write(" ".join([str(_it) for _it in vnp]) + "\n")
                 self.video_num_pairs = deepcopy(video_np)
             else:
+                print("Policy exists. Loading...")
                 with open(self.policy_path, 'r') as pf:
                     video_np = pf.readlines()
 
@@ -215,6 +221,10 @@ class VidOR(data.Dataset):
         with open(os.path.join(self.gt_boxfeatures_dir, video_name+'.pkl'), 'rb') as gf:
             gt_box_features = pickle.load(gf)
         
+        if self.with_clip_feature:
+            with open(os.path.join(self.clip_training_features_dir, video_name+'.pkl'), 'rb') as cf:
+                gt_clip_features = pickle.load(cf)
+
         ## 4. get valid frames
         traj_frames = defaultdict(list)
         for frame_id, frame_anno in enumerate(video_anno['trajectories']):
@@ -230,6 +240,8 @@ class VidOR(data.Dataset):
         entity_bboxes = dict()
         entity_classes = dict()
         traj_intervals = dict()
+        if self.with_clip_feature:
+            clip_features = dict()
 
         for tid in tids:
             index  = tid_to_index[tid]
@@ -251,6 +263,17 @@ class VidOR(data.Dataset):
             visual_features[index] = utils.get_visual_features(gt_box_features, tid, indices)
             entity_bboxes[index] = utils.get_bboxes(video_anno['trajectories'], tid, indices)
             assert len(visual_features[index]) == len(indices) and len(entity_bboxes[index]) == len(indices)
+
+            if self.with_clip_feature:
+                ## 6.3 clip features
+                clip_feat = torch.tensor(gt_clip_features[tid], dtype=torch.float32)
+                clip_feat_list = [clip_feat[id_[0]: id_[1], :] for id_ in indices_]
+                assert len(clip_feat_list) == len(indices)
+                
+                for idx in range(len(clip_feat_list)):
+                    assert torch.sum(torch.sum(clip_feat_list[idx] == 0, dim=1) == clip_feat_list[idx].shape[1]) == 0
+                            
+                clip_features[index] = clip_feat_list
 
         ## 7. entity classes
         for so in video_anno['subject/objects']:
@@ -300,6 +323,9 @@ class VidOR(data.Dataset):
             "traj_intervals": traj_intervals,
         }
 
+        if self.with_clip_feature:
+            output_dict['clip_features'] = clip_features
+
         return output_dict
 
     def _train_getitem(self, input_dict, pair_duration=None):
@@ -319,7 +345,10 @@ class VidOR(data.Dataset):
         ## 2. get features
         visual_features = data_dict['visual_features']
         entity_bboxes = data_dict['entity_bboxes']
-        traj_intervals = data_dict['traj_intervals']    
+        traj_intervals = data_dict['traj_intervals']
+        if self.with_clip_feature:
+            clip_features = data_dict['clip_features']
+
 
         ## bbox clamp
         h_, w_ = data_dict['video_hw']
@@ -378,7 +407,18 @@ class VidOR(data.Dataset):
             s_bbox_feat = utils.entity_bbox_to_spatial_features(sbbox, h=h_, w=w_)
             o_bbox_feat = utils.entity_bbox_to_spatial_features(obbox, h=h_, w=w_)
 
-            so_feat = torch.cat([s_feat, o_feat, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0) # (C, L)
+            if self.with_clip_feature:
+                # 2.4 so clip features
+                s_feat_clip = clip_features[sub_index][sub_interval_index]
+                s_feat_clip = s_feat_clip[s_start_diff: s_start_diff + so_end - so_start]
+                s_feat_clip = s_feat_clip[start_offset::self.feat_stride, :]
+
+                o_feat_clip = clip_features[obj_index][obj_interval_index]
+                o_feat_clip = o_feat_clip[o_start_diff: o_start_diff + so_end - so_start]
+                o_feat_clip = o_feat_clip[start_offset::self.feat_stride, :]
+                so_feat = torch.cat([s_feat, o_feat, s_feat_clip, o_feat_clip, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0) # (C, L)
+            else:
+                so_feat = torch.cat([s_feat, o_feat, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0) # (C, L)
 
             # 3. pred and mask
             preds = []
@@ -505,6 +545,17 @@ class VidOR(data.Dataset):
             "visual_features_list": visual_features_list,
             "video_wh": proposal_dict['video_wh'],
         }
+
+        if self.with_clip_feature:
+            with open(os.path.join(self.clip_val_proposal_features_dir, video_name+'.pkl'), 'rb') as cf:
+                clip_features = pickle.load(cf)
+
+            clip_features_list = [torch.as_tensor(clip_features[idx][traj_durations[idx][0]: traj_durations[idx][1]], dtype=torch.float32) for idx in range(len(cat_ids))]
+            for idx in range(len(clip_features_list)):
+                assert len(clip_features_list[idx]) == traj_durations[idx][1] - traj_durations[idx][0]
+                assert torch.sum(torch.sum(clip_features_list[idx] == 0, dim=1) == clip_features_list[idx].shape[1]) == 0
+            output_dict['clip_features_list'] = clip_features_list
+
         return output_dict
 
     def _val_getitem(self, input_dict, viou_threshold=0.9):
@@ -519,6 +570,9 @@ class VidOR(data.Dataset):
         traj_durations = data_dict['traj_durations']
         bboxes_list = data_dict['bboxes_list']
         visual_features_list = data_dict['visual_features_list']
+        if self.with_clip_feature:
+            clip_features_list = data_dict['clip_features_list']
+
 
         ## bbox process
         w_, h_ = input_dict['video_wh']
@@ -648,7 +702,18 @@ class VidOR(data.Dataset):
             o_bbox_feat = utils.entity_bbox_to_spatial_features(obbox, h=h_, w=w_)
 
             _so_offset.append(start_offset)
-            _so_features_list.append(torch.cat([s_feat, o_feat, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0))
+
+            if self.with_clip_feature:
+                # 1.4 so clip features
+                s_feat_clip = clip_features_list[_sid][s_start_diff: bbox_len + s_start_diff]
+                s_feat_clip = s_feat_clip[start_offset::self.feat_stride, :]
+
+                o_feat_clip = clip_features_list[_oid][o_start_diff: bbox_len + o_start_diff]
+                o_feat_clip = o_feat_clip[start_offset::self.feat_stride, :]
+                _so_features_list.append(torch.cat([s_feat, o_feat, s_feat_clip, o_feat_clip, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0))
+
+            else:
+                _so_features_list.append(torch.cat([s_feat, o_feat, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0))
 
         valid_tids = torch.tensor(valid_tids, dtype=torch.bool)
         sids = sids[valid_tids]
@@ -700,23 +765,24 @@ class VidOR(data.Dataset):
                             output_dict[k] = output_dict[k] + v
                         else:
                             raise TypeError()
+            
+            if len(output_dict.keys()) != 0:
+                return output_dict
+            else:
+                idx = random.randint(0, len(self.policy) - 1)
+                return self.__getitem__(idx)
 
         else:
             video_name = self.video_name_list[idx]
             input_dict = self.video_features[video_name]
             output_dict = self._val_getitem(input_dict)
 
-        if len(output_dict.keys()) != 0:
-            if self.split == 'validation':
+            if len(output_dict.keys()) != 0:
                 ## update video name
                 output_dict['video_name'] = video_name
-
-            return output_dict
-        elif self.split == 'training':
-            idx = random.randint(0, len(self.policy) - 1)
-            return self.__getitem__(idx)
-        else:
-            return None
+                return output_dict
+            else:
+                return None
         
 
     def __len__(self):
