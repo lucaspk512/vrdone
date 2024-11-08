@@ -10,25 +10,15 @@ from collections import defaultdict
 import torch
 import torch.utils.data as data
 
-from .category import vidor_category_name_to_id, vidor_category_id_to_name, vidor_pred_name_to_id, vidor_pred_id_to_name
+from .category import vidvrd_category_name_to_id, vidvrd_category_id_to_name, vidvrd_pred_name_to_id, vidvrd_pred_id_to_name
 import utils.misc as utils
 
 TO_REMOVE = 1
 
-class VidOR(data.Dataset):
-    def __init__(self, config, scale=None):
+class VidVRD(data.Dataset):
+    def __init__(self, config):
         self.split = config['split']
-        assert self.split in ['training', 'validation']
-
-        ## not used
-        self.min_frames_th = config['min_frames_th']
-        self.max_proposal = config['max_proposal']
-        self.max_preds = config['max_preds']
-        self.score_th = config['score_th']
-
-        ## feat dim
-        self.dim_visualfeature = config['dim_visualfeature']
-        self.dim_wordfeature = config['dim_wordfeature']
+        assert self.split in ['train', 'test']
 
         ## dirs
         self.anno_dir = config['ann_dir']
@@ -36,62 +26,48 @@ class VidOR(data.Dataset):
         self.cache_dir = config['cache_dir']
 
         ## config
-        self.with_clip_feature = config['with_clip_feature']
         self.feat_stride = config['feat_stride']
         self.max_seq_len = config['max_seq_len']
 
         ## name to id
-        self.entity_cat_name_to_id = vidor_category_name_to_id
-        self.pred_cat_name_to_id = vidor_pred_name_to_id
-        self.entity_cat_id_to_name = vidor_category_id_to_name
-        self.pred_cat_id_to_name = vidor_pred_id_to_name
+        self.entity_cat_name_to_id = vidvrd_category_name_to_id
+        self.pred_cat_name_to_id = vidvrd_pred_name_to_id
+        self.entity_cat_id_to_name = vidvrd_category_id_to_name
+        self.pred_cat_id_to_name = vidvrd_pred_id_to_name
 
         ## anno dir and video name
         self.video_ann_dir = os.path.join(self.anno_dir, self.split)
         self.video_name_list = self._prepare_video_names()
 
-        ## if scale is True, then use a small part data for debug
-        self.scale = scale
-        if scale:
-            self.video_name_list = self.video_name_list[:scale]
-        
         ## build cache
-        cache_path = (self.cache_tag + "_" + "VidOR_{}".format(self.split))
+        cache_path = self.cache_tag + "_" + "VidVRD_{}".format(self.split)
 
         ## add config specific to training set
-        if self.split == "training":
+        if self.split == "train":
             self.cut_max_preds = config['cut_max_preds']
             self.proposal_max_preds = config['proposal_max_preds']
             self.num_pairs = config['num_pairs']
             self.gt_boxfeatures_dir = config['gt_boxfeatures_dir']
-            self.policy_path = config['policy_path']
-            self.clip_training_features_dir = config['clip_training_features_dir']
             self.video_num_pairs = []
         else:
             self.proposal_min_frames = config['proposal_min_frames']
             self.random_stride = config['random_stride']
             self.stride_offset = config['stride_offset']
             self.info_dir = config['info_dir']
-            self.clip_val_proposal_features_dir = config['clip_val_proposal_features_dir']
+            self.test_boxfeatures_dir = config['test_boxfeatures_dir']
             assert self.proposal_min_frames > self.stride_offset
 
         self.cache_path = os.path.join(self.cache_dir, cache_path)
         if not os.path.exists(self.cache_path):
             os.makedirs(self.cache_path)
-        
+
         ## (key step!) process data
         self.process_data()
         ## done
 
     def _prepare_video_names(self):
-        group_list = os.listdir(self.video_ann_dir)
-        group_list = sorted(group_list)
-        video_name_list = []
-        for group_name in group_list:
-            video_list = os.listdir(os.path.join(self.video_ann_dir, group_name))
-            video_list = sorted(video_list)
-            video_list = [group_name + "_" + v.split('.')[0] for v in video_list]
-            video_name_list += video_list
+        video_name_list = os.listdir(self.video_ann_dir)
+        video_name_list = sorted([v.split('.')[0] for v in video_name_list])
         return video_name_list
     
     def process_data(self):
@@ -99,62 +75,25 @@ class VidOR(data.Dataset):
         not very elegant
         """
         print("Processing data into cache files. Cache path: {}".format(self.cache_path))
-        if self.split == 'training':
-            ## generate cache
-            for video_name in tqdm(self.video_name_list):
-                if not os.path.exists(os.path.join(self.cache_path, video_name+'.pkl')):
-                    data_ = self._prepare_cache(video_name)
-                    with open(os.path.join(self.cache_path, video_name+'.pkl'), 'wb') as f:
-                        pickle.dump(data_, f)
+        self.video_features = dict()
 
-            ## calculate the number of pairs for each video
-            if not os.path.exists(self.policy_path):
-                print("Policy does not exists. Generating...")
-
-                if self.scale:
-                    raise ValueError("Remove `scale` and use the whole dataset to generate the policy application file!!!")
-
-                video_np = []
-                for video_name in tqdm(self.video_name_list):
-                    with open(os.path.join(self.cache_path, video_name+'.pkl'), 'rb') as f:
-                        data_ = pickle.load(f)
-                    
-                    if len(data_.keys()) != 0:
-                        video_np.append([video_name, len(data_['relation_keys'])])
-
-                with open(self.policy_path, 'w') as pf:
-                    for vnp in video_np:
-                        pf.write(" ".join([str(_it) for _it in vnp]) + "\n")
-                self.video_num_pairs = deepcopy(video_np)
+        for video_name in tqdm(self.video_name_list):
+            if (not os.path.exists(os.path.join(self.cache_path, video_name+'.pkl'))):
+                data_ = self._prepare_cache(video_name)
+                with open(os.path.join(self.cache_path, video_name+'.pkl'), 'wb') as f:
+                    pickle.dump(data_, f)
             else:
-                print("Policy exists. Loading...")
-                with open(self.policy_path, 'r') as pf:
-                    video_np = pf.readlines()
-
-                for vnp in video_np:
-                    data_np = vnp.strip().split(" ")
-                    assert len(data_np) == 2
-
-                    if data_np[0] not in self.video_name_list:
-                        break
-                    self.video_num_pairs.append([data_np[0], int(data_np[1])])
-
-            ## apply policy  
+                with open(os.path.join(self.cache_path, video_name+'.pkl'), 'rb') as f:
+                    data_ = pickle.load(f)
+                
+            if self.split == 'train' and len(data_.keys()) != 0:
+                self.video_num_pairs.append([video_name, len(data_['relation_keys'])])
+                
+            self.video_features[video_name] = data_
+        
+        ## apply policy  
+        if self.split == 'train':
             self.apply_policy()
-            
-        else:
-            self.video_features = dict()
-            
-            ## generate cache and load feauture
-            for video_name in tqdm(self.video_name_list):
-                if (not os.path.exists(os.path.join(self.cache_path, video_name+'.pkl'))):
-                    data_ = self._prepare_cache(video_name)
-                    with open(os.path.join(self.cache_path, video_name+'.pkl'), 'wb') as f:
-                        pickle.dump(data_, f)
-                else:
-                    with open(os.path.join(self.cache_path, video_name+'.pkl'), 'rb') as f:
-                        data_ = pickle.load(f)
-                self.video_features[video_name] = data_
 
         print("Process done.")
 
@@ -162,7 +101,7 @@ class VidOR(data.Dataset):
         """
         build a policy for loading data with balance
         """
-        print("Applying policy...")      
+        print("Applying policy...")
         self.policy = list()
         
         current_num_pairs = 0
@@ -196,38 +135,62 @@ class VidOR(data.Dataset):
         print("Applying is done.")
 
     def _prepare_cache(self, video_name):
-        if self.split == "training":
+        if self.split == "train":
             return self._prepare_train(video_name)
         else:
-            return self._prepare_val(video_name)
-    
+            return self._prepare_test(video_name)
+
+    def check_merged_relations(self, relation_list):
+        for i in range(len(relation_list)):
+            base_sub_tid = relation_list[i]['subject_tid']
+            base_obj_tid = relation_list[i]['object_tid']
+            base_predicate = relation_list[i]['predicate']
+            base_begin_fid = relation_list[i]['begin_fid']
+            base_end_fid = relation_list[i]['end_fid']
+            
+            for j in range(len(relation_list)):
+                if i == j:
+                    continue
+
+                to_merge_begin_fid = relation_list[j]['begin_fid']
+                to_merge_end_fid = relation_list[j]['end_fid']
+                to_merge_sub_tid = relation_list[j]['subject_tid']
+                to_merge_obj_tid = relation_list[j]['object_tid']
+                to_merge_predicate = relation_list[j]['predicate'] 
+
+                if (base_sub_tid == to_merge_sub_tid and base_obj_tid == to_merge_obj_tid and
+                    base_predicate == to_merge_predicate):   
+                    
+                    if not ((base_begin_fid < base_end_fid) and (to_merge_begin_fid < to_merge_end_fid)):
+                        return False
+                    
+                    if not ((base_end_fid < to_merge_begin_fid) or (base_begin_fid > to_merge_end_fid)):
+                        return False
+
+        return True
+
     def _prepare_train(self, video_name):
-        assert self.split == 'training'
+        assert self.split == 'train'
         
         ## 1. get anno
-        group_id, video_id = tuple(video_name.split('_'))
-        anno_path = os.path.join(self.video_ann_dir, group_id, video_id+'.json')
+        anno_path = os.path.join(self.video_ann_dir, video_name+'.json')
         with open(anno_path, 'r') as gf:
             video_anno = json.load(gf)
-    
+        
         ## 2. return if info of the video is invalid.
         if len(video_anno['relation_instances']) == 0:
             return {}
-
+    
         ## 3. get gt features
         with open(os.path.join(self.gt_boxfeatures_dir, video_name+'.pkl'), 'rb') as gf:
             gt_box_features = pickle.load(gf)
-        
-        if self.with_clip_feature:
-            with open(os.path.join(self.clip_training_features_dir, video_name+'.pkl'), 'rb') as cf:
-                gt_clip_features = pickle.load(cf)
-
+    
         ## 4. get valid frames
         traj_frames = defaultdict(list)
         for frame_id, frame_anno in enumerate(video_anno['trajectories']):
             for bbox_anno in frame_anno:
                 traj_frames[bbox_anno['tid']].append(frame_id) 
-
+        
         ## 5. tid to number_id 
         tids = sorted(list(traj_frames.keys()))
         tid_to_index = {t1: t2 for t1, t2 in zip(tids, range(len(tids)))}
@@ -237,51 +200,87 @@ class VidOR(data.Dataset):
         entity_bboxes = dict()
         entity_classes = dict()
         traj_intervals = dict()
-        if self.with_clip_feature:
-            clip_features = dict()
 
         for tid in tids:
             index  = tid_to_index[tid]
-            
+
             ## 6.1 get interval
             traj_frames[tid] = sorted(traj_frames[tid])
             frame_indices = torch.tensor(deepcopy(traj_frames[tid]))
             diff = frame_indices[1:] - frame_indices[:-1]
-
+        
             ## split interval
             start_indices = torch.cat((torch.tensor([0]), torch.nonzero(diff > 1).squeeze(1) + 1))
             end_indices = torch.cat((torch.nonzero(diff > 1).squeeze(1), torch.tensor([len(frame_indices) - 1])))
             start_indices, end_indices = frame_indices[start_indices], frame_indices[end_indices] + 1
             indices_ = torch.stack([start_indices, end_indices], dim=-1)
             traj_intervals[index] = indices_
-
+        
             indices = indices_.tolist()
             ## 6.2 visual features
             visual_features[index] = utils.get_visual_features(gt_box_features, tid, indices)
             entity_bboxes[index] = utils.get_bboxes(video_anno['trajectories'], tid, indices)
             assert len(visual_features[index]) == len(indices) and len(entity_bboxes[index]) == len(indices)
-
-            if self.with_clip_feature:
-                ## 6.3 clip features
-                clip_feat = torch.tensor(gt_clip_features[tid], dtype=torch.float32)
-                clip_feat_list = [clip_feat[id_[0]: id_[1], :] for id_ in indices_]
-                assert len(clip_feat_list) == len(indices)
-                
-                for idx in range(len(clip_feat_list)):
-                    assert torch.sum(torch.sum(clip_feat_list[idx] == 0, dim=1) == clip_feat_list[idx].shape[1]) == 0
-                            
-                clip_features[index] = clip_feat_list
-
+    
         ## 7. entity classes
         for so in video_anno['subject/objects']:
             index  = tid_to_index[so['tid']]
             entity_classes[index] = self.entity_cat_name_to_id[so['category']]
-
+    
         ## 8. process relation
         relation_merged = defaultdict(list)
         relation_keys = set()
+        
+        ## 8.1 merge relation instances
+        relation_instances = sorted(video_anno['relation_instances'], key=lambda x: x['begin_fid'])
+        num_instances = len(relation_instances)
 
-        for relation_anno in video_anno['relation_instances']:
+        if num_instances == 1:
+            merged_relation_instances = relation_instances
+        else:
+            merged_relation_instances = []
+            visited = [False] * num_instances
+            for start_instance_idx in range(num_instances):
+                if visited[start_instance_idx]:
+                    continue
+                else:
+                    base_instance = relation_instances[start_instance_idx]
+
+                    base_sub_tid = base_instance['subject_tid']
+                    base_obj_tid = base_instance['object_tid']
+                    base_predicate = base_instance['predicate']
+                    
+                    visited[start_instance_idx] = True
+                    for end_instance_idx in range(start_instance_idx + 1, num_instances):
+                        base_begin_fid = base_instance['begin_fid']
+                        base_end_fid = base_instance['end_fid']
+                        
+                        to_merge_instance = relation_instances[end_instance_idx]
+                        
+                        to_merge_begin_fid = to_merge_instance['begin_fid']
+                        to_merge_end_fid = to_merge_instance['end_fid']
+                        to_merge_sub_tid = to_merge_instance['subject_tid']
+                        to_merge_obj_tid = to_merge_instance['object_tid']
+                        to_merge_predicate = to_merge_instance['predicate']
+                        
+                        if (base_sub_tid == to_merge_sub_tid and base_obj_tid == to_merge_obj_tid and
+                            base_predicate == to_merge_predicate):
+
+                            assert to_merge_begin_fid > base_begin_fid
+
+                            if to_merge_begin_fid <= base_end_fid:
+                                assert to_merge_end_fid > base_end_fid
+                                base_instance['end_fid'] = to_merge_end_fid
+                                visited[end_instance_idx] = True
+
+                    merged_relation_instances.append(deepcopy(base_instance))
+            assert False not in visited
+        
+        assert self.check_merged_relations(deepcopy(merged_relation_instances))
+        merged_relation_instances = sorted(merged_relation_instances, key=lambda x: x['begin_fid'])
+        
+        ## 8.2 apply relation
+        for relation_anno in merged_relation_instances:
             sub_index, obj_index = tid_to_index[relation_anno['subject_tid']], tid_to_index[relation_anno['object_tid']]
             bf, ef = relation_anno['begin_fid'], relation_anno['end_fid']
             sub_valid = (traj_intervals[sub_index][:, 0] <= bf) & (traj_intervals[sub_index][:, 1] >= ef)
@@ -294,7 +293,7 @@ class VidOR(data.Dataset):
 
             sub_interval = traj_intervals[sub_index][sub_interval_index]
             obj_interval = traj_intervals[obj_index][obj_interval_index]
-
+        
             so_start, so_end = max(sub_interval[0], obj_interval[0]), min(sub_interval[1], obj_interval[1])
             assert so_start < so_end
 
@@ -305,7 +304,7 @@ class VidOR(data.Dataset):
             })
             
             relation_keys.add((sub_index, obj_index, sub_interval_index, obj_interval_index))
-            
+
         ## 9. postprocess some format
         traj_intervals = {k: v.tolist() for k, v in traj_intervals.items()}
         relation_keys = [list(_key) for _key in relation_keys]
@@ -319,9 +318,6 @@ class VidOR(data.Dataset):
             "entity_classes": entity_classes,
             "traj_intervals": traj_intervals,
         }
-
-        if self.with_clip_feature:
-            output_dict['clip_features'] = clip_features
 
         return output_dict
 
@@ -342,10 +338,7 @@ class VidOR(data.Dataset):
         ## 2. get features
         visual_features = data_dict['visual_features']
         entity_bboxes = data_dict['entity_bboxes']
-        traj_intervals = data_dict['traj_intervals']
-        if self.with_clip_feature:
-            clip_features = data_dict['clip_features']
-
+        traj_intervals = data_dict['traj_intervals'] 
 
         ## bbox clamp
         h_, w_ = data_dict['video_hw']
@@ -358,10 +351,11 @@ class VidOR(data.Dataset):
 
                 assert (torch.all(entity_bboxes[tid][interval][:, 2] > entity_bboxes[tid][interval][:, 0]) and 
                         torch.all(entity_bboxes[tid][interval][:, 3] > entity_bboxes[tid][interval][:, 1]))
-
+        
         _so_features = []
         _predications = []
         _masks = []
+        _segs = []
 
         for relation_key in relation_merged.keys():
             start_offset = random.randint(0, self.feat_stride - 1)
@@ -370,7 +364,7 @@ class VidOR(data.Dataset):
             ## 2.1 remove if the relations of one pair is too many 
             if self.cut_max_preds and self.proposal_max_preds < len(relation_merged[relation_key]):
                 continue
-            
+
             ## 2.2 so visual features
             sub_interval = traj_intervals[sub_index][sub_interval_index]
             obj_interval = traj_intervals[obj_index][obj_interval_index]
@@ -404,18 +398,7 @@ class VidOR(data.Dataset):
             s_bbox_feat = utils.entity_bbox_to_spatial_features(sbbox, h=h_, w=w_)
             o_bbox_feat = utils.entity_bbox_to_spatial_features(obbox, h=h_, w=w_)
 
-            if self.with_clip_feature:
-                # 2.4 so clip features
-                s_feat_clip = clip_features[sub_index][sub_interval_index]
-                s_feat_clip = s_feat_clip[s_start_diff: s_start_diff + so_end - so_start]
-                s_feat_clip = s_feat_clip[start_offset::self.feat_stride, :]
-
-                o_feat_clip = clip_features[obj_index][obj_interval_index]
-                o_feat_clip = o_feat_clip[o_start_diff: o_start_diff + so_end - so_start]
-                o_feat_clip = o_feat_clip[start_offset::self.feat_stride, :]
-                so_feat = torch.cat([s_feat, o_feat, s_feat_clip, o_feat_clip, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0) # (C, L)
-            else:
-                so_feat = torch.cat([s_feat, o_feat, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0) # (C, L)
+            so_feat = torch.cat([s_feat, o_feat, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0) # (C, L)
 
             # 3. pred and mask
             preds = []
@@ -449,6 +432,8 @@ class VidOR(data.Dataset):
             so_feat, preds, segs = feats
             ## 5. seg to mask   
             masks = []
+            _segs.append(segs)
+
             segs = segs.to(torch.int64)
             for seg in segs:
                 mask_ = torch.zeros((self.max_seq_len), dtype=torch.float32)
@@ -467,29 +452,31 @@ class VidOR(data.Dataset):
             "so_features_list": _so_features,
             "preds_list": _predications,
             "masks_list": _masks,
+            "segs_list": _segs,
         } 
         return output_dict
 
-    def _prepare_val(self, video_name):
+    def _prepare_test(self, video_name):
         """
         proposal_dict: ['MAX_PROPOSAL', 'video_name', 'cat_ids', 'scores', 'bboxes_list', 
                         'traj_durations', 'features_list', 'num_proposals', 'dim_feat', 
                         'video_len', 'video_wh']
         """
-        assert self.split == 'validation'
+        assert self.split == 'test'
         
         with open(os.path.join(self.info_dir, video_name+'.pkl'), 'rb') as f:
             data_dict = pickle.load(f)
+        
         proposal_dict = data_dict['traj_proposal']
-
+        
         ## 1. return if info of the video is invalid.
         num_proposals = proposal_dict['num_proposals']
         if num_proposals < 2:
             return {}
 
         ## 2. get entity infos        
-        traj_durations = proposal_dict['traj_durations'].numpy()
-        traj_durations[:, 0] -= 1 # left close, right open
+        traj_durations = proposal_dict['traj_durations'].numpy() 
+        traj_durations[:, 1] += 1 # left close, right open
 
         ## 3. get so ids, use meshgrid
         cat_ids = proposal_dict['cat_ids'].numpy()
@@ -519,7 +506,27 @@ class VidOR(data.Dataset):
         ## use numpy first, and change them to tensor later.
         cat_scores = proposal_dict['scores'].numpy()
         bboxes_list = [bboxes.numpy() for bboxes in proposal_dict['bboxes_list']]
-        visual_features_list = [features.numpy()[:, :self.dim_visualfeature] for features in proposal_dict['features_list']]
+        
+        with open(os.path.join(self.test_boxfeatures_dir, video_name+'.pkl'), 'rb') as f:
+            feature_data_dict = pickle.load(f)
+        
+        visual_features_dict = defaultdict(list)
+        frame_ids = sorted(list(feature_data_dict.keys()))
+        for fid in frame_ids:
+            features = feature_data_dict[fid]
+            assert features['frame_id'] == fid
+            for idx, tid in enumerate(features['tids']):
+                assert traj_durations[tid][0] <= fid and traj_durations[tid][1] > fid
+                visual_features_dict[tid].append(features['visual_features'][idx])
+        
+        for key in visual_features_dict:
+            assert len(visual_features_dict[key]) == (traj_durations[key][1] - traj_durations[key][0])
+        
+        keys = sorted(list(visual_features_dict.keys()))
+        assert np.sum(np.array(keys) - np.array(list(range(len(keys))))) == 0
+        visual_features_list = []
+        for _k in keys:
+            visual_features_list.append(np.stack(visual_features_dict[_k], axis=0))
 
         ## 6. so ids to 
         sids = torch.as_tensor(s_ids_filtered, dtype=torch.int64)
@@ -540,20 +547,9 @@ class VidOR(data.Dataset):
             "visual_features_list": visual_features_list,
             "video_wh": proposal_dict['video_wh'],
         }
-
-        if self.with_clip_feature:
-            with open(os.path.join(self.clip_val_proposal_features_dir, video_name+'.pkl'), 'rb') as cf:
-                clip_features = pickle.load(cf)
-
-            clip_features_list = [torch.as_tensor(clip_features[idx][traj_durations[idx][0]: traj_durations[idx][1]], dtype=torch.float32) for idx in range(len(cat_ids))]
-            for idx in range(len(clip_features_list)):
-                assert len(clip_features_list[idx]) == traj_durations[idx][1] - traj_durations[idx][0]
-                assert torch.sum(torch.sum(clip_features_list[idx] == 0, dim=1) == clip_features_list[idx].shape[1]) == 0
-            output_dict['clip_features_list'] = clip_features_list
-
         return output_dict
 
-    def _val_getitem(self, input_dict, viou_threshold=0.9):
+    def _test_getitem(self, input_dict, viou_threshold=0.9):
         # remove invalid data
         if len(input_dict.keys()) == 0:
             return {}
@@ -565,9 +561,6 @@ class VidOR(data.Dataset):
         traj_durations = data_dict['traj_durations']
         bboxes_list = data_dict['bboxes_list']
         visual_features_list = data_dict['visual_features_list']
-        if self.with_clip_feature:
-            clip_features_list = data_dict['clip_features_list']
-
 
         ## bbox process
         w_, h_ = input_dict['video_wh']
@@ -582,6 +575,7 @@ class VidOR(data.Dataset):
 
         ## filter these entity
         num_tids = len(bboxes_list)
+        assert num_tids == len(visual_features_list)
         valid_tids = [True] * num_tids
 
         for base_id in range(num_tids):
@@ -602,6 +596,7 @@ class VidOR(data.Dataset):
                     continue
                 
                 ref_dura = traj_durations[ref_id].tolist()
+                
                 if ref_dura[0] >= base_dura[1] or ref_dura[1] <= base_dura[0]:
                     continue
 
@@ -646,18 +641,16 @@ class VidOR(data.Dataset):
 
         sids = sids[valid_soids]
         oids = oids[valid_soids]
-
+        
         if len(sids) == 0:
             return {}
         
         ## feature
         _so_features_list = []
         _so_offset = []
-        
         valid_tids = [True] * len(sids)
-        
         for idx, (_sid, _oid) in enumerate(zip(sids, oids)):
-            start_offset = random.randint(0, self.feat_stride-1) if self.random_stride else self.stride_offset
+            start_offset = random(0, self.feat_stride-1) if self.random_stride else self.stride_offset
 
             ## 1.1 get so len
             s_start, s_end = traj_durations[_sid][0], traj_durations[_sid][1]
@@ -674,7 +667,7 @@ class VidOR(data.Dataset):
             if s_feat.shape[0] < self.proposal_min_frames:
                 valid_tids[idx] = False
                 continue
-            
+        
             s_feat = s_feat[start_offset::self.feat_stride, :]
 
             o_feat = visual_features_list[_oid][o_start_diff: bbox_len + o_start_diff]
@@ -697,18 +690,7 @@ class VidOR(data.Dataset):
             o_bbox_feat = utils.entity_bbox_to_spatial_features(obbox, h=h_, w=w_)
 
             _so_offset.append(start_offset)
-
-            if self.with_clip_feature:
-                # 1.4 so clip features
-                s_feat_clip = clip_features_list[_sid][s_start_diff: bbox_len + s_start_diff]
-                s_feat_clip = s_feat_clip[start_offset::self.feat_stride, :]
-
-                o_feat_clip = clip_features_list[_oid][o_start_diff: bbox_len + o_start_diff]
-                o_feat_clip = o_feat_clip[start_offset::self.feat_stride, :]
-                _so_features_list.append(torch.cat([s_feat, o_feat, s_feat_clip, o_feat_clip, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0))
-
-            else:
-                _so_features_list.append(torch.cat([s_feat, o_feat, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0))
+            _so_features_list.append(torch.cat([s_feat, o_feat, so_bbox_feat, s_bbox_feat, o_bbox_feat], dim=-1).permute(1, 0))
 
         valid_tids = torch.tensor(valid_tids, dtype=torch.bool)
         sids = sids[valid_tids]
@@ -731,19 +713,17 @@ class VidOR(data.Dataset):
             "so_features_list": _so_features_list,
             "so_offset": _so_offset,
         }
-        return output_dict
+        return output_dict   
     
-
     def __getitem__(self, idx):
-        if self.split == 'training':
+        if self.split == 'train':
             policy = self.policy[idx]
             output_dict = dict()
 
             for policy_info in policy:
                 video_name, (pair_start, pair_end) = policy_info[0], policy_info[1]
                 ## get data
-                with open(os.path.join(self.cache_path, video_name+'.pkl'), 'rb') as f:
-                    input_dict = pickle.load(f)
+                input_dict = self.video_features[video_name]
                 ## process
                 data_dict = self._train_getitem(input_dict, (pair_start, pair_end))
 
@@ -770,7 +750,7 @@ class VidOR(data.Dataset):
         else:
             video_name = self.video_name_list[idx]
             input_dict = self.video_features[video_name]
-            output_dict = self._val_getitem(input_dict)
+            output_dict = self._test_getitem(input_dict)
 
             if len(output_dict.keys()) != 0:
                 ## update video name
@@ -778,14 +758,13 @@ class VidOR(data.Dataset):
                 return output_dict
             else:
                 return None
-        
 
     def __len__(self):
-        if self.split == 'training':
+        if self.split == 'train':
             return len(self.policy)
         else:
             return len(self.video_name_list)
-
+    
     @property
     def collator_func(self):
         def collate_fn_train(batch):
@@ -799,11 +778,12 @@ class VidOR(data.Dataset):
                             
             return batch_output_dict
         
-        def collate_fn_val(batch):
+        def collate_fn_test(batch):
             assert len(batch) == 1
             return batch[0]
         
-        if self.split == 'training':
+        if self.split == 'train':
             return collate_fn_train
         else:
-            return collate_fn_val
+            return collate_fn_test   
+        

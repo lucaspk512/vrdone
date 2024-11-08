@@ -13,7 +13,7 @@ from mega_core.utils.comm import get_world_size, synchronize
 from mega_core.utils.metric_logger import MetricLogger
 from mega_core.engine.inference import inference
 
-from apex import amp
+# from apex import amp
 
 def reduce_loss_dict(loss_dict):
     """
@@ -103,10 +103,13 @@ def do_train(
         meters.update(loss=losses_reduced, **loss_dict_reduced)
 
         optimizer.zero_grad()
+        
         # Note: If mixed precision is not used, this ends up doing nothing
         # Otherwise apply loss scaling for mixed-precision recipe
-        with amp.scale_loss(losses, optimizer) as scaled_losses:
-            scaled_losses.backward()
+        # with amp.scale_loss(losses, optimizer) as scaled_losses:
+        #     scaled_losses.backward()
+        losses.backward()
+
         optimizer.step()
         scheduler.step()
 

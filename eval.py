@@ -13,7 +13,7 @@ from torch.utils import data
 import utils.misc as utils
 from utils.logging import setup_logger
 from utils.evaluate import EvaluationFormatConvertor, eval_relation
-from dataloaders.vidor import VidOR
+from dataloaders import VidOR, VidVRD
 from models.maskvrd import MaskVRD
 
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -22,6 +22,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Test a Video Relation Detector")
 
     # control
+    parser.add_argument("--data_name", type=str, choices=['vidor', 'vidvrd'], help="dataset name")
     parser.add_argument("--cfg_path", type=str, help="...")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
     parser.add_argument("--exp_dir", type=str)
@@ -49,7 +50,7 @@ def evaluate():
     config['training_config']['training_epoch'] = args.epochs
     config['training_config']['eval_start_epoch'] = args.eval_start_epoch
     config['inference_config']['topk'] = args.topk
-    config['model_config']['with_clip_feature'] = config['dataset_config']['with_clip_feature']
+    config['model_config']['with_clip_feature'] = config['dataset_config'].get('with_clip_feature', False)
     config['dataset_config'].update(config['test_dataset_config'])
 
     ## set seed
@@ -63,7 +64,11 @@ def evaluate():
     logger.info(f"Config: \n{json.dumps(config, indent=4)}")
 
     ## construct data
-    dataset = VidOR(config['dataset_config'], args.scale)
+    if args.data_name == 'vidor':
+        dataset = VidOR(config['dataset_config'], args.scale)
+    else:
+        dataset = VidVRD(config['dataset_config'])
+
     dataloader = data.DataLoader(
         dataset,
         batch_size=1,
@@ -88,13 +93,13 @@ def evaluate():
     ckpt_paths = []
     if args.eval_exp_dir:
         for epoch in range(eval_start_epoch - 1, training_epoch, eval_interval):
-            cp = os.path.join(args.exp_dir, "model_epoch_{}_vidor.pth".format(epoch + 1))
+            cp = os.path.join(args.exp_dir, "model_epoch_{}_{}.pth".format(epoch + 1, args.data_name))
             ckpt_paths.append(cp)
     else:
         assert args.ckpt_path
         ckpt_paths.append(args.ckpt_path)
     
-    convertor = EvaluationFormatConvertor("vidor")
+    convertor = EvaluationFormatConvertor(args.data_name)
     all_results = defaultdict(list)
 
     ## metric keys
@@ -156,7 +161,7 @@ def evaluate():
         else:
             # continue here
             results = eval_relation(
-                dataset_type="vidor", 
+                dataset_type=args.data_name, 
                 prediction_results=predict_relations, 
                 config=config
             )
@@ -168,7 +173,7 @@ def evaluate():
             logger.info("{}: {:.6f}".format(k, v))
 
         if args.save_result:
-            save_path = os.path.join(args.exp_dir, 'VidORval_predict_relations_topk{}_epoch{}.json'.format(args.topk, ckpt_idx + eval_start_epoch))
+            save_path = os.path.join(args.exp_dir, 'predicted_relations_topk{}_epoch{}.json'.format(args.topk, ckpt_idx + eval_start_epoch))
             logger.info("Saving predict_relations into {}...".format(save_path))
             with open(save_path, 'w') as f:
                 json.dump(predict_relations, f)

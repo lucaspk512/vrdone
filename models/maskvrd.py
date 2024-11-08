@@ -10,6 +10,8 @@ from .fpns import FPN1D_Fuse
 from .predictor import MaskedTransformerPredictor
 from .losses import batch_masked_sigmoid_focal_loss, batch_masked_dice_loss
 from .losses import masked_sigmoid_focal_loss, masked_dice_loss
+from .losses import batch_masked_sigmoid_focal_fuzzy_loss, batch_masked_dice_fuzzy_loss
+from .losses import masked_sigmoid_focal_fuzzy_loss, masked_dice_fuzzy_loss
 
 class MaskVRD(nn.Module):
     """
@@ -20,13 +22,17 @@ class MaskVRD(nn.Module):
 
         ## 1. config
         self.visual_dim = config['visual_dim']
-        self.clip_dim = config['clip_dim']
+        self.clip_dim = config.get('clip_dim', None)
         self.bbox_entity_dim = config['bbox_entity_dim']
         self.bbox_so_dim = config['bbox_so_dim']
         self.embd_dim = config['embd_dim']
 
         ## other config
         self.max_so_pair = config['max_so_pair']
+        self.with_fuzzy = config.get('with_fuzzy', False)
+        self.scale_range = config.get('scale_range', None)
+        if self.with_fuzzy:
+            assert self.scale_range is not None
 
         ## cost and loss factor
         self.loss_types = config['loss_types']
@@ -61,7 +67,7 @@ class MaskVRD(nn.Module):
 
 
         ## 2.backbone
-        self.with_clip_feature = config['with_clip_feature']
+        self.with_clip_feature = config.get('with_clip_feature', False)
         if not self.with_clip_feature:
             self.backbone = MaskConvTransformerBackbone(
                 n_visual = self.visual_dim,
@@ -89,6 +95,7 @@ class MaskVRD(nn.Module):
             )
         
         else:
+            assert self.clip_dim is not None
             self.backbone = MaskConvTransformerBackboneWithCLIP(
                 n_visual = self.visual_dim,
                 n_clip = self.clip_dim,
@@ -169,19 +176,26 @@ class MaskVRD(nn.Module):
 
         gt_preds = input_data['preds_list']
         gt_masks = input_data['masks_list']
+        gt_segs = input_data.get('segs_list', None)
+        if self.with_fuzzy:
+            assert gt_segs is not None
 
         ## bipartite_match
-        indices, loss_mask = self.bipartite_match(pred_logits, gt_preds, pred_masks, gt_masks, _mask=predictions['output_mask'])
+        indices, loss_mask = self.bipartite_match(
+            pred_logits, gt_preds, pred_masks, gt_masks, gt_segs,
+            _mask=predictions['output_mask']
+        )
 
         ## loss
         loss_dict = self.loss(
-            indices, pred_logits, pred_masks, gt_preds, gt_masks, _mask=predictions['output_mask'], loss_mask=loss_mask,
+            indices, pred_logits, pred_masks, gt_preds, gt_masks, gt_segs, 
+            _mask=predictions['output_mask'], loss_mask=loss_mask,
             aux_outputs=(predictions['aux_outputs'] if self.deep_supervision else None),
         )
 
         total_loss = torch.stack(list(loss_dict.values())).sum()  # scalar tensor
         loss_dict['total_loss'] = total_loss
-        return total_loss, loss_dict
+        return loss_dict
 
     @torch.no_grad()
     def forward_test(self, input_data):
@@ -400,7 +414,6 @@ class MaskVRD(nn.Module):
             return (batched_short_inputs, batched_long_inputs), (batched_short_masks, batched_long_masks), (short_ids, long_ids)
     
 
-
     @torch.no_grad()
     def bipartite_match(
         self,
@@ -408,6 +421,7 @@ class MaskVRD(nn.Module):
         gt_preds,
         pred_masks,
         gt_masks,
+        gt_segs,
         _mask,
     ):  
         bs, num_queries = pred_logits.shape[:2]
@@ -419,7 +433,12 @@ class MaskVRD(nn.Module):
         
         tgt_ids = torch.cat(gt_preds, dim=0)
         tgt_mask = torch.cat(gt_masks, dim=0)
-        
+
+        if gt_segs:
+            tgt_segs = torch.cat(gt_segs, dim=0)
+        else:
+            tgt_segs = None
+
         batch_tgt_mask = []
         for i in range(bs):
             batch_tgt_mask += [_mask[i, 0]] * len(gt_masks[i])
@@ -432,11 +451,33 @@ class MaskVRD(nn.Module):
         tgt_ids = tgt_ids[None, :].repeat(out_logits.shape[0], 1)
         cost_class = F.cross_entropy(out_logits, tgt_ids, reduction='none')
 
-        ## Compute the focal loss between masks
-        cost_mask = batch_masked_sigmoid_focal_loss(out_mask, tgt_mask, batch_out_mask=batch_out_mask, batch_tgt_mask=batch_tgt_mask)
+        if self.with_fuzzy:
+            ## Compute the focal loss between masks
+            cost_mask = batch_masked_sigmoid_focal_fuzzy_loss(
+                out_mask, tgt_mask, 
+                batch_out_mask=batch_out_mask, batch_tgt_mask=batch_tgt_mask, 
+                batch_tgt_seg=tgt_segs, scale_range=self.scale_range
+            )
+
+            ## Compute the dice loss betwen masks
+            cost_dice = batch_masked_dice_fuzzy_loss(
+                out_mask, tgt_mask, 
+                batch_out_mask=batch_out_mask, batch_tgt_mask=batch_tgt_mask, 
+                batch_tgt_seg=tgt_segs, scale_range=self.scale_range
+            )
+
+        else:
+            ## Compute the focal loss between masks
+            cost_mask = batch_masked_sigmoid_focal_loss(
+                out_mask, tgt_mask, 
+                batch_out_mask=batch_out_mask, batch_tgt_mask=batch_tgt_mask
+            )
         
-        ## Compute the dice loss betwen masks
-        cost_dice = batch_masked_dice_loss(out_mask, tgt_mask, batch_out_mask=batch_out_mask, batch_tgt_mask=batch_tgt_mask)
+            ## Compute the dice loss betwen masks
+            cost_dice = batch_masked_dice_loss(
+                out_mask, tgt_mask, 
+                batch_out_mask=batch_out_mask, batch_tgt_mask=batch_tgt_mask
+            )
 
         ## Final cost matrix
         _C = (
@@ -454,7 +495,7 @@ class MaskVRD(nn.Module):
         assert loss_mask.shape[0] == sum(sizes)
         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices], loss_mask
     
-    def loss_labels(self, pred_logits, pred_masks, gt_preds, gt_masks, indices, num_masks, loss_mask):
+    def loss_labels(self, pred_logits, pred_masks, gt_preds, gt_masks, gt_segs, indices, num_masks, loss_mask):
         """Classification loss (NLL)
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
@@ -470,7 +511,7 @@ class MaskVRD(nn.Module):
         losses = {"loss_class": self.loss_factor['loss_class'] * loss_ce}
         return losses
 
-    def loss_masks(self, pred_logits, pred_masks, gt_preds, gt_masks, indices, num_masks, loss_mask):
+    def loss_masks(self, pred_logits, pred_masks, gt_preds, gt_masks, gt_segs, indices, num_masks, loss_mask):
         """Compute the losses related to the masks: the focal loss and the dice loss.
         targets dicts must contain the key "masks" containing a tensor of dim [nb_target_boxes, h, w]
         """
@@ -486,10 +527,26 @@ class MaskVRD(nn.Module):
 
         assert pred_masks.shape == target_masks.shape
 
-        losses = {
-            "loss_mask": self.loss_factor['loss_mask'] * masked_sigmoid_focal_loss(pred_masks, target_masks, num_masks, loss_mask),
-            "loss_dice": self.loss_factor['loss_dice'] * masked_dice_loss(pred_masks, target_masks, num_masks, loss_mask),
-        }
+        if self.with_fuzzy:
+            target_segs = []
+            for idx, mask in enumerate(gt_masks):
+                seg = gt_segs[idx][indices[idx][1]]
+                target_segs.append(seg)
+            
+            target_segs = torch.cat(target_segs, dim=0)
+            assert target_masks.shape[0] == target_segs.shape[0]
+
+            losses = {
+                "loss_mask": self.loss_factor['loss_mask'] * masked_sigmoid_focal_fuzzy_loss(pred_masks, target_masks, num_masks, loss_mask, tgt_segs=target_segs, scale_range=self.scale_range),
+                "loss_dice": self.loss_factor['loss_dice'] * masked_dice_fuzzy_loss(pred_masks, target_masks, num_masks, loss_mask, tgt_segs=target_segs, scale_range=self.scale_range),
+            }
+
+        else:
+            losses = {
+                "loss_mask": self.loss_factor['loss_mask'] * masked_sigmoid_focal_loss(pred_masks, target_masks, num_masks, loss_mask),
+                "loss_dice": self.loss_factor['loss_dice'] * masked_dice_loss(pred_masks, target_masks, num_masks, loss_mask),
+            }
+
         return losses
 
     def _get_src_permutation_idx(self, indices):
@@ -504,27 +561,27 @@ class MaskVRD(nn.Module):
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
 
-    def get_loss(self, loss, pred_logits, pred_masks, gt_preds, gt_masks, indices, num_masks, loss_mask):
+    def get_loss(self, loss, pred_logits, pred_masks, gt_preds, gt_masks, gt_segs, indices, num_masks, loss_mask):
         loss_map = {"labels": self.loss_labels, "masks": self.loss_masks}
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
-        return loss_map[loss](pred_logits, pred_masks, gt_preds, gt_masks, indices, num_masks, loss_mask)
+        return loss_map[loss](pred_logits, pred_masks, gt_preds, gt_masks, gt_segs, indices, num_masks, loss_mask)
 
-    def loss(self, indices, pred_logits, pred_masks, gt_preds, gt_masks, _mask, loss_mask, aux_outputs=None):
+    def loss(self, indices, pred_logits, pred_masks, gt_preds, gt_masks, gt_segs, _mask, loss_mask, aux_outputs=None):
         num_masks = sum(len(gt) for gt in gt_preds)
         num_masks = torch.as_tensor([num_masks], dtype=torch.float, device=pred_logits[0].device)
         num_masks = torch.clamp(num_masks, min=1).item()
 
         losses = {}
         for loss in self.loss_types:
-            losses.update(self.get_loss(loss, pred_logits, pred_masks, gt_preds, gt_masks, indices, num_masks, loss_mask))
+            losses.update(self.get_loss(loss, pred_logits, pred_masks, gt_preds, gt_masks, gt_segs, indices, num_masks, loss_mask))
 
         if aux_outputs is not None:
             for i, aux_op in enumerate(aux_outputs):
                 aux_pred_logits, aux_pred_masks = aux_op['pred_logits'], aux_op['pred_masks']
                 
-                aux_indices, aux_loss_mask = self.bipartite_match(aux_pred_logits, gt_preds, aux_pred_masks, gt_masks, _mask = _mask)
+                aux_indices, aux_loss_mask = self.bipartite_match(aux_pred_logits, gt_preds, aux_pred_masks, gt_masks, gt_segs, _mask = _mask)
                 for loss in self.loss_types:
-                    l_dict = self.get_loss(loss, aux_pred_logits, aux_pred_masks, gt_preds, gt_masks, aux_indices, num_masks, aux_loss_mask)
+                    l_dict = self.get_loss(loss, aux_pred_logits, aux_pred_masks, gt_preds, gt_masks, gt_segs, aux_indices, num_masks, aux_loss_mask)
                     l_dict = {k + f"_{i}": v for k, v in l_dict.items()}
                     losses.update(l_dict)
 

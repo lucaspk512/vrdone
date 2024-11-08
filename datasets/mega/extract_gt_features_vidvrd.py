@@ -11,17 +11,16 @@ import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.utils.data import DataLoader
 
-from vidor_dataset import VidORDatasetGt
-from feature_extractor_vidor import FeatureExtractor
+from vidvrd_dataset import VidVRDDatasetGt
+from feature_extractor_vidvrd import FeatureExtractor
 
-GROUP_MIN = 0
-GROUP_MAX = 699
+
 BASE_CONFIG = "configs/BASE_RCNN_1gpu.yaml"
 
 def set_worker_sharing_strategy(worker_id: int) -> None:
     torch.multiprocessing.set_sharing_strategy("file_system")
 
-def extract_VidOR_gt_features(part_id, gpu_id, args):
+def extract_VidVRD_gt_features(part_id, gpu_id, args):
     from mega_core.config import cfg
     from mega_core.data.transforms.build import build_transforms
     from mega_core.utils.checkpoint import DetectronCheckpointer
@@ -30,24 +29,20 @@ def extract_VidOR_gt_features(part_id, gpu_id, args):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
+
     cfg.merge_from_file(BASE_CONFIG)
     cfg.merge_from_file(args.config_file)
 
-    assert part_id >=GROUP_MIN and part_id <= GROUP_MAX
-
-    img_index = '{}/img_index_{}.txt'.format(args.index_dir, part_id)
-    dataset = VidORDatasetGt(
+    dataset = VidVRDDatasetGt(
         cfg=cfg,
-        image_set="VidOR_mega",
-        img_index = img_index,
-        data_dir="datasets",
+        data_name="VidVRD_mega",
         img_dir=args.frame_dir,
         anno_path=args.anno_dir,
         transforms=build_transforms(cfg, is_train=False),
+        save_dir=save_dir,
         part_id=part_id,
-        save_dir=save_dir,     
     )
-    
+
     dataloader = DataLoader(
         dataset, 
         batch_size=1, 
@@ -57,17 +52,7 @@ def extract_VidOR_gt_features(part_id, gpu_id, args):
         collate_fn=lambda x: x,
         worker_init_fn=set_worker_sharing_strategy
     )
-    
-    # detect_flag = False
-    # for vn in dataset.video_name_list:
-    #     if not os.path.exists(os.path.join(save_dir, vn + '.pkl')):
-    #         detect_flag = True; break
-    
-    # if not detect_flag:
-    #     sys.exit(0)
-    # else:
-    #     print("part_id {}: {} are all existed!".format(part_id, dataset.video_name_list))
-    
+
     device = torch.device("cuda:{}".format(gpu_id))
     model = FeatureExtractor(cfg)
     checkpointer = DetectronCheckpointer(cfg, model)
@@ -77,24 +62,18 @@ def extract_VidOR_gt_features(part_id, gpu_id, args):
 
     model.get_data_infos(deepcopy(dataset.image_set_index), deepcopy(dataset.annos), deepcopy(dataset.filtered_frame_idx))
 
-    # print("start extract features...")
-    video_name_list = ['_'.join(x.split('/')[:2]) for x in dataset.image_set_index].copy()
-    video_name_unique = list(set(video_name_list))
-    video_name_unique.sort(key=video_name_list.index)  # keep the original order
-    video_frame_count = {x: video_name_list.count(x) for x in video_name_unique}
-    
+    video_frame_count = deepcopy(dataset.video_frame_count)
     video_gt_features = dict()
     
-    saved_num = 0
-    video_all_index = int(part_id) * 10
+    video_all_index = 0
     for data in dataloader:
         images, _ = data[0]
 
         # if images == None:
         #     continue
-
+        
         fname_part = images["filename"].split("/")
-        video_name, frame_id = '_'.join([fname_part[0], fname_part[1]]), fname_part[2].split('_')[1]
+        video_name, frame_id = fname_part[0], fname_part[1].split('_')[-1]
         feature_dict_path = os.path.join(save_dir, video_name + '.pkl')
 
         frame_id = int(frame_id)
@@ -120,33 +99,25 @@ def extract_VidOR_gt_features(part_id, gpu_id, args):
 
         video_frame_count[video_name] -= 1
         if video_frame_count[video_name] == 0:
-            
             with open(feature_dict_path, 'wb') as ff:
                 pickle.dump(video_gt_features, ff)
             print("Saved video {}th: {} done.".format(video_all_index, video_name))
             video_all_index += 1
-
-            saved_num += 1
             video_gt_features = dict()
     
-    print("num of saved video: {}".format(saved_num))
-            
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='xxxx')
     parser.add_argument('--gpu_id', type=str, help='the dataset name for evaluation')
     parser.add_argument('--part_id', type=str)
-    parser.add_argument('--config_file', type=str, default="configs/MEGA/partxx/VidORtrain_freq1_part01.yaml")
-    parser.add_argument('--save_dir', type=str, default="../vidor/features/GT_boxfeatures_training")
-    parser.add_argument('--frame_dir', type=str, default="../vidor/frames")
-    parser.add_argument('--index_dir', type=str, default="datasets/vidor-dataset/img_index_every_10_videos_training")
-    parser.add_argument('--anno_dir', type=str, default="../vidor/annotations/training")
-
-
+    parser.add_argument('--config_file', type=str, default="configs/MEGA/partxx/VidVRDtrain_freq5.yaml")
+    parser.add_argument('--save_dir', type=str, default="../vidvrd/features/GT_boxfeatures_training")
+    parser.add_argument('--frame_dir', type=str, default="../vidvrd/frames")
+    parser.add_argument('--anno_dir', type=str, default="../vidvrd/annotations/train")
     args = parser.parse_args()
 
     gpu_id = int(args.gpu_id)
     part_id = int(args.part_id)
 
-    extract_VidOR_gt_features(part_id, gpu_id, args)
+    extract_VidVRD_gt_features(part_id, gpu_id, args)

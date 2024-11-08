@@ -5,6 +5,7 @@ import os
 from copy import deepcopy
 
 class DatasetCatalog(object):
+    PARENT_DATA_DIR = "../"
     DATA_DIR = "datasets"
     DATASETS = {
         "coco_2017_train": {
@@ -62,52 +63,52 @@ class DatasetCatalog(object):
         ## VidVRD
         "COCO_val_21classes":
         {
-            "img_dir": "COCO/val2014",
+            "img_dir": "coco/val2014",
             "anno_path": "COCOinVidVRD/COCO_val_21classes.pkl"
         },
         "COCO_train_21classes":
         {
-            "img_dir": "COCO/train2014",
+            "img_dir": "coco/train2014",
             "anno_path": "COCOinVidVRD/COCO_train_21classes.pkl"
         },
         "VidVRDtrain_freq1":
         {
-            "img_dir": "vidvrd-dataset/VidVRD/vidvrd-dataset/frames",
-            "anno_path": "vidvrd-dataset/VidVRD/vidvrd-dataset/train",
+            "img_dir": "vidvrd/frames",
+            "anno_path": "vidvrd/annotations/train",
             "img_index": "vidvrd-dataset/img_index/VidVRD_train_every1frames.txt"
             
         },   
         "VidVRDtrain_freq2":
         {
-            "img_dir": "vidvrd-dataset/VidVRD/vidvrd-dataset/frames",
-            "anno_path": "vidvrd-dataset/VidVRD/vidvrd-dataset/train",
+            "img_dir": "vidvrd/frames",
+            "anno_path": "vidvrd/annotations/train",
             "img_index": "vidvrd-dataset/img_index/VidVRD_train_every2frames.txt"
             
         },      
         "VidVRDtrain_freq5":
         {
-            "img_dir": "vidvrd-dataset/VidVRD/vidvrd-dataset/frames",
-            "anno_path": "vidvrd-dataset/VidVRD/vidvrd-dataset/train",
+            "img_dir": "vidvrd/frames",
+            "anno_path": "vidvrd/annotations/train",
             "img_index": "vidvrd-dataset/img_index/VidVRD_train_every5frames.txt"
             
         },      
         "VidVRDtrain_freq10":
         {
-            "img_dir": "vidvrd-dataset/VidVRD/vidvrd-dataset/frames",
-            "anno_path": "vidvrd-dataset/VidVRD/vidvrd-dataset/train",
+            "img_dir": "vidvrd/frames",
+            "anno_path": "vidvrd/annotations/train",
             "img_index": "vidvrd-dataset/img_index/VidVRD_train_every10frames.txt"
             
         },      
         "VidVRDval_freq1":
         {
-            "img_dir": "vidvrd-dataset/VidVRD/vidvrd-dataset/frames",
-            "anno_path": "vidvrd-dataset/VidVRD/vidvrd-dataset/test",
+            "img_dir": "vidvrd/frames",
+            "anno_path": "vidvrd/annotations/test",
             "img_index": "vidvrd-dataset/img_index/VidVRD_test_every1frames.txt"
         },
         "VidVRDval_freq5":
         {
-            "img_dir": "vidvrd-dataset/VidVRD/vidvrd-dataset/frames",
-            "anno_path": "vidvrd-dataset/VidVRD/vidvrd-dataset/test",
+            "img_dir": "vidvrd/frames",
+            "anno_path": "vidvrd/annotations/test",
             "img_index": "vidvrd-dataset/img_index/VidVRD_test_every5frames.txt"
         },
         ##
@@ -115,134 +116,134 @@ class DatasetCatalog(object):
         
         "COCO_valmini_34classes":
         {
-            "img_dir": "COCOdataset/val2014",
+            "img_dir": "coco/val2014",
             "anno_path": "COCOinVidOR/COCO_valmini_34classes.pkl"
         },
         "COCO_train_34classes":
         {
-            "img_dir": "COCOdataset/train2014",
+            "img_dir": "coco/train2014",
             "anno_path": "COCOinVidOR/COCO_train_34classes.pkl"
         },
         "VidORtrain_freq32":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq32.txt"
         },
         "VidORval_freq32":
         {
-            "img_dir": "vidor-dataset/val_frames",
-            "anno_path": "vidor-dataset/annotation/validation",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORval_freq32.txt"
         },
         #### --------------- inference  freq1----------------------------
         "VidORval_freq1":
         {
-            "img_dir": "vidor-dataset/val_frames",
-            "anno_path": "vidor-dataset/annotation/validation",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/validation",
             "img_index": "vidor-dataset/img_index/VidORval_freq1.txt"
         },
         "VidORval_freq1_0024":  #
         {
-            "img_dir": "vidor-dataset/val_frames",
-            "anno_path": "vidor-dataset/annotation/validation",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/validation",
             "img_index": "vidor-dataset/img_index/VidORval_freq1_0024.txt"
         },
         "VidORval_freq2_0024":  #
         {
-            "img_dir": "vidor-dataset/val_frames",
-            "anno_path": "vidor-dataset/annotation/validation",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/validation",
             "img_index": "vidor-dataset/img_index/VidORval_freq2_0024.txt"
         },
         "VidORtrain_freq1_0_999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq1_0_999.txt"
         },
         "VidORtrain_freq1_1k1999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq1_1k1999.txt"
         },
         "VidORtrain_freq1_2k2999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq1_2k2999.txt"
         },
         "VidORtrain_freq1_3k3999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq1_3k3999.txt"
         },
         "VidORtrain_freq1_4k4999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq1_4k4999.txt"
         },
         "VidORtrain_freq1_5k5999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq1_5k5999.txt"
         },
         "VidORtrain_freq1_6k6999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq1_6k6999.txt"
         },
         #### --------------- inference  freq2----------------------------
         "VidORval_freq2":
         {
-            "img_dir": "vidor-dataset/val_frames",
-            "anno_path": "vidor-dataset/annotation/validation",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/validation",
             "img_index": "vidor-dataset/img_index/VidORval_freq2.txt"
         },
         "VidORtrain_freq2_0_999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq2_0_999.txt"
         },
         "VidORtrain_freq2_1k1999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq2_1k1999.txt"
         },
         "VidORtrain_freq2_2k2999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq2_2k2999.txt"
         },
         "VidORtrain_freq2_3k3999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq2_3k3999.txt"
         },
         "VidORtrain_freq2_4k4999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq2_4k4999.txt"
         },
         "VidORtrain_freq2_5k5999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq2_5k5999.txt"
         },
         "VidORtrain_freq2_6k6999":
         {
-            "img_dir": "vidor-dataset/train_frames",
-            "anno_path": "vidor-dataset/annotation/training",
+            "img_dir": "vidor/frames",
+            "anno_path": "vidor/annotations/training",
             "img_index": "vidor-dataset/img_index/VidORtrain_freq2_6k6999.txt"
         },
 
@@ -251,21 +252,23 @@ class DatasetCatalog(object):
     @staticmethod
     def get(name, method="base"):
         if "coco" in name:
+            parent_data_dir = DatasetCatalog.PARENT_DATA_DIR
             data_dir = DatasetCatalog.DATA_DIR
             attrs = DatasetCatalog.DATASETS[name]
             args = dict(
-                root=os.path.join(data_dir, attrs["img_dir"]),
-                ann_file=os.path.join(data_dir, attrs["ann_file"]),
+                root=os.path.join(parent_data_dir, attrs["img_dir"]),
+                ann_file=os.path.join(parent_data_dir, attrs["ann_file"]),
             )
             return dict(
                 factory="COCODataset",
                 args=args,
             )
         elif "voc" in name:
+            parent_data_dir = DatasetCatalog.PARENT_DATA_DIR
             data_dir = DatasetCatalog.DATA_DIR
             attrs = DatasetCatalog.DATASETS[name]
             args = dict(
-                data_dir=os.path.join(data_dir, attrs["data_dir"]),
+                data_dir=os.path.join(parent_data_dir, attrs["data_dir"]),
                 split=attrs["split"],
             )
             return dict(
@@ -273,19 +276,21 @@ class DatasetCatalog(object):
                 args=args,
             )
         elif "cityscapes" in name:
+            parent_data_dir = DatasetCatalog.PARENT_DATA_DIR
             data_dir = DatasetCatalog.DATA_DIR
             attrs = deepcopy(DatasetCatalog.DATASETS[name])
-            attrs["img_dir"] = os.path.join(data_dir, attrs["img_dir"])
-            attrs["ann_dir"] = os.path.join(data_dir, attrs["ann_dir"])
+            attrs["img_dir"] = os.path.join(parent_data_dir, attrs["img_dir"])
+            attrs["ann_dir"] = os.path.join(parent_data_dir, attrs["ann_dir"])
             return dict(factory="CityScapesDataset", args=attrs)
         elif "VidOR" in name:                  # add this
+            parent_data_dir = DatasetCatalog.PARENT_DATA_DIR
             data_dir = DatasetCatalog.DATA_DIR
             attrs = DatasetCatalog.DATASETS[name]
             args = dict(
                 image_set=name,
                 data_dir=data_dir,
-                img_dir=os.path.join(data_dir, attrs["img_dir"]),
-                anno_path=os.path.join(data_dir, attrs["anno_path"]),
+                img_dir=os.path.join(parent_data_dir, attrs["img_dir"]),
+                anno_path=os.path.join(parent_data_dir, attrs["anno_path"]),
                 img_index=os.path.join(data_dir, attrs["img_index"])  
             )
             return dict(
@@ -293,13 +298,14 @@ class DatasetCatalog(object):
                 args=args,
             )
         elif "VidVRD" in name:
+            parent_data_dir = DatasetCatalog.PARENT_DATA_DIR
             data_dir = DatasetCatalog.DATA_DIR
             attrs = DatasetCatalog.DATASETS[name]
             args = dict(
                 image_set=name,
                 data_dir=data_dir,
-                img_dir=os.path.join(data_dir, attrs["img_dir"]),
-                anno_path=os.path.join(data_dir, attrs["anno_path"]),
+                img_dir=os.path.join(parent_data_dir, attrs["img_dir"]),
+                anno_path=os.path.join(parent_data_dir, attrs["anno_path"]),
                 img_index=os.path.join(data_dir, attrs["img_index"])  
             )
             return dict(
@@ -308,12 +314,13 @@ class DatasetCatalog(object):
             )
             
         elif "COCO".upper() in name: #TODO 最好和小写coco区分的明显一些
+            parent_data_dir = DatasetCatalog.PARENT_DATA_DIR
             data_dir = DatasetCatalog.DATA_DIR
             attrs = DatasetCatalog.DATASETS[name]
             args = dict(
                 image_set=name,
                 data_dir=data_dir,
-                img_dir=os.path.join(data_dir, attrs["img_dir"]),
+                img_dir=os.path.join(parent_data_dir, attrs["img_dir"]),
                 anno_path=os.path.join(data_dir, attrs["anno_path"])  
             )
             if "34" in name:
@@ -337,12 +344,13 @@ class DatasetCatalog(object):
                 "dff": "VIDDFFDataset"
             }
             if ("DET" in name) or ("VID" in name):
+                parent_data_dir = DatasetCatalog.PARENT_DATA_DIR
                 data_dir = DatasetCatalog.DATA_DIR
                 attrs = DatasetCatalog.DATASETS[name]
                 args = dict(
                     image_set=name,
                     data_dir=data_dir,
-                    img_dir=os.path.join(data_dir, attrs["img_dir"]),
+                    img_dir=os.path.join(parent_data_dir, attrs["img_dir"]),
                     anno_path=os.path.join(data_dir, attrs["anno_path"]),
                     img_index=os.path.join(data_dir, attrs["img_index"])
                 )

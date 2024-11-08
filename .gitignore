@@ -6,7 +6,13 @@
 /temp.py
 
 # datasets
+/datasets/coco
 /datasets/vidor
+/datasets/vidvrd
+/datasets/mega/experiments
+/datasets/mega/datasets/cache
+/datasets/mega/datasets/COCOinVidVRD/COCO_train_21classes.pkl
+/datasets/mega/datasets/COCOinVidVRD/COCO_val_21classes.pkl
 /datasets/vidor_val_gts.json
 
 /experiments

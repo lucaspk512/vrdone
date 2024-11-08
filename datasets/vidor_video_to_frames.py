@@ -1,5 +1,4 @@
 import os
-from tqdm import tqdm
 import json
 
 def sorted_listdir(dir):
@@ -12,7 +11,7 @@ if __name__ == '__main__':
     anno_dirs = ['./vidor/annotations/training', './vidor/annotations/validation']
     
     video_groups = sorted_listdir(videos_dir)
-    for vg in tqdm(video_groups):
+    for vg in video_groups:
         video_names = sorted_listdir(os.path.join(videos_dir, vg))
         for vn in video_names:
             vid = vn.split('.')[0]

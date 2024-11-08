@@ -13,7 +13,7 @@ from torch.nn.parallel import DistributedDataParallel
 import utils.misc as utils
 from utils.logging import setup_logger
 from utils.train_utils import ModelEma, build_optimizer, build_scheduler, save_checkpoint
-from dataloaders.vidor import VidOR
+from dataloaders import VidVRD, VidOR
 from models.maskvrd import MaskVRD
 
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -22,6 +22,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Train a Video Relation Detector")
 
     # control
+    parser.add_argument("--data_name", type=str, choices=['vidor', 'vidvrd'], help="dataset name")
     parser.add_argument("--cfg_path", type=str, help="configuration file")
     parser.add_argument("--seed", type=int, default=42, help="random seed")
     parser.add_argument("--exp_dir", type=str, help="experiment path to save logs and ckpts")
@@ -44,7 +45,7 @@ def main():
 
     ## update config
     config['training_config']['seed'] = args.seed
-    config['model_config']['with_clip_feature'] = config['dataset_config']['with_clip_feature']
+    config['model_config']['with_clip_feature'] = config['dataset_config'].get('with_clip_feature', False)
     config['dataset_config'].update(config['training_dataset_config'])
 
     ## DDP init
@@ -68,7 +69,11 @@ def main():
     logger.info(f"Config: \n{json.dumps(config, indent=4)}")
 
     ## construct data
-    dataset = VidOR(config['dataset_config'], args.scale)
+    if args.data_name == 'vidor':
+        dataset = VidOR(config['dataset_config'], args.scale)
+    else:
+        dataset = VidVRD(config['dataset_config'])
+
     sampler = torch.utils.data.distributed.DistributedSampler(
         dataset,
         num_replicas=args.world_size,
@@ -174,11 +179,11 @@ def main():
             training_lr = scheduler.get_last_lr()[-1]
 
             ## model forward
-            total_loss, loss_dict = model(input_data)
+            loss_dict = model(input_data)
             
             ## backward
             optimizer.zero_grad(set_to_none=True)
-            total_loss.backward()
+            loss_dict['total_loss'].backward()
             if clip_grad_l2norm > 0.0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_l2norm)
             
@@ -213,7 +218,7 @@ def main():
 
         ## save ckpt
         if (epoch + 1) % save_interval == 0 and (epoch + 1) >= eval_start_epoch:
-            save_path = os.path.join(args.exp_dir, 'model_epoch_{}_vidor.pth'.format(epoch + 1))
+            save_path = os.path.join(args.exp_dir, 'model_epoch_{}_{}.pth'.format(epoch + 1, args.data_name))
             if args.rank == 0:
                 save_checkpoint(batch_size, epoch, model, optimizer, scheduler, save_path, model_ema=model_ema)
             logger.info("Checkpoint is saved: {}".format(save_path))

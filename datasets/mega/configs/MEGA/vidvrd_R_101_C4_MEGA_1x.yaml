@@ -18,14 +18,14 @@ DATASETS:
   TEST: ("VidVRDval_freq1",)
 
 DATALOADER:
-  NUM_WORKERS: 2 # 4
+  NUM_WORKERS: 4
   
 SOLVER:
   BASE_LR: 0.001
   WEIGHT_DECAY: 0.0001
-  STEPS: (120000, ) #100000
-  MAX_ITER: 180000 # 150000
-  IMS_PER_BATCH: 1    # 2 this config file uses 2 GPUs
+  STEPS: (120000, )
+  MAX_ITER: 180000
+  IMS_PER_BATCH: 2    # this config file uses 2 GPUs
   WARMUP_ITERS: 500
 TEST:
   IMS_PER_BATCH: 2

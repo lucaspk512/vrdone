@@ -130,7 +130,6 @@ def eval_relation(
     prediction_results=None,
     json_results_path=None,
     config=None,
-    use_merged=False,
 ):
     if prediction_results is None:
         assert json_results_path is not None
@@ -142,10 +141,7 @@ def eval_relation(
         assert json_results_path is None
 
     assert config is not None
-    if use_merged:
-        gt_relations_path = config['prepare_gt_config']['gt_relations_merged_path']
-    else:
-        gt_relations_path = config['prepare_gt_config']['gt_relations_path']
+    gt_relations_path = config['prepare_gt_config']['gt_relations_path']
     assert gt_relations_path is None or gt_relations_path.endswith(".json")
     
     if not os.path.exists(gt_relations_path):
@@ -153,7 +149,7 @@ def eval_relation(
         dataset_type = dataset_type.lower()
         assert dataset_type in ["vidvrd", "vidor"]
         if dataset_type == "vidvrd":
-            prepare_gts_for_vidvrd(config, merge_relation=use_merged)
+            prepare_gts_for_vidvrd(config)
         else:
             prepare_gts_for_vidor(config)
     else:

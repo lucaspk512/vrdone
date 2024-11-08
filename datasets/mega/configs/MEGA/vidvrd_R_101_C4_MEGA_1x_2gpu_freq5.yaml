@@ -6,20 +6,15 @@ MODEL:
         ENABLE: True
         STAGE: 3
   META_ARCHITECTURE: "GeneralizedRCNNMEGA"
-  # WEIGHT: "catalog://ImageNetPretrained/MSRA/R-101"
-  WEIGHT: "./experiments/vidvrd/COCO21VRDfreq5_2gpu/model_0150000.pth"
-
+  WEIGHT: "catalog://ImageNetPretrained/MSRA/R-101"
   BACKBONE:
     CONV_BODY: "R-101-C4"
   ROI_BOX_HEAD:
-
     FEATURE_EXTRACTOR: "MEGAFeatureExtractor"
     PREDICTOR: "FPNPredictor"
 DATASETS:
-  # TRAIN: ("COCO_train_21classes", "COCO_val_21classes", "VidVRDtrain_freq1")
-  # 62381 + 30302 + 75390 = 1680373 16.8w
-  TRAIN: ("VidVRDtrain_freq5",)
-  # 15078
+  TRAIN: ("COCO_train_21classes", "COCO_val_21classes", "VidVRDtrain_freq5")
+  # 62381 + 30302 + 15078 = 107761 10.7w
   TEST: ("VidVRDval_freq1",)
 
 DATALOADER:
@@ -29,8 +24,8 @@ SOLVER:
   BASE_LR: 0.001
   WEIGHT_DECAY: 0.0001
   STEPS: (100000, )
-  MAX_ITER: 210000
-  IMS_PER_BATCH: 2    # 2 this config file uses 2 GPUs
+  MAX_ITER: 150000
+  IMS_PER_BATCH: 2   # this config file uses 2 GPUs
   WARMUP_ITERS: 500
 TEST:
   IMS_PER_BATCH: 2

@@ -6,27 +6,27 @@ MODEL:
         ENABLE: True
         STAGE: 3
   META_ARCHITECTURE: "GeneralizedRCNNMEGA"
-  # WEIGHT: "../datasets/vidvrd/Big/DetectionModels/model_0180000_COCO_pretrained.pth"
-  # WEIGHT: "./ckpts/model_0150000_vidvrd.pth"
-
+  WEIGHT: "./experiments/vidvrd/COCO21VRDfreq5_2gpu_finetune_lr1/model_0190000.pth"
   BACKBONE:
     CONV_BODY: "R-101-C4"
   ROI_BOX_HEAD:
     FEATURE_EXTRACTOR: "MEGAFeatureExtractor"
     PREDICTOR: "FPNPredictor"
     NUM_CLASSES: 81
-    # NUM_CLASSES: 36
-
 DATASETS:
-  TRAIN: ("COCO_train_34classes", "COCO_valmini_34classes","VidORtrain_freq32")
-  # 58890 + 25407 + 226781 = 311078, 31w
-  TEST: ("VidORtrain_freq1_part01",)  ## VidORtrain_freq1_00.txt
+  TRAIN: ("COCO_train_21classes", "COCO_val_21classes", "VidVRDtrain_freq5")
+  # 62381 + 30302 + 15078 = 107761 10.7w
+  TEST: ("VidVRDval_freq1",)
+
+DATALOADER:
+  NUM_WORKERS: 4
+
 SOLVER:
   BASE_LR: 0.001
   WEIGHT_DECAY: 0.0001
   STEPS: (120000, )
   MAX_ITER: 180000
-  IMS_PER_BATCH: 4
+  IMS_PER_BATCH: 1
   WARMUP_ITERS: 500
 TEST:
   IMS_PER_BATCH: 1
