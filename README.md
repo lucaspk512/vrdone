@@ -19,7 +19,7 @@ Video Visual Relation Detection (VidVRD) focuses on understanding how entities i
    ```
    pip install -r requirements.txt
    ```
-3. Clone Shang's evaluation helper https://github.com/xdshang/VidVRD-helper to the root path.
+3. Clone Shang's evaluation helper https://github.com/xdshang/VidVRD-helper to the root path and rename the folder as `VidVRD_helper`.
 
 
 ## Data Preparation
@@ -73,6 +73,8 @@ Install `ffmpeg` using `sudo apt-get install ffmpeg`. The organization of datase
 |   |   |   └── VidVRD_test_every1frames
 |   |   ├── frames
 │   │   └── videos
+|   |       ├── ILSVRC2015_train_00005003.mp4
+|   |       ├── ...
 |   ├── vidor_policy.txt
 |   ├── vidor_video_to_frames.py
 |   └── vidvrd_video_to_frames.py
@@ -112,12 +114,16 @@ Install `ffmpeg` using `sudo apt-get install ffmpeg`. The organization of datase
 
 ### VidVRD
 
-1. Download the [ImageNet-VidVRD](https://xdshang.github.io/docs/imagenet-vidvrd.html) dataset. Unzip the videos into `datasets/vidvrd/videos`. Unzip the annotations into `datasets/vidvrd/annotations/train` and `datasets/vidvrd/annotations/test`.
+1. Download the [ImageNet-VidVRD](https://xdshang.github.io/docs/imagenet-vidvrd.html) dataset. Unzip all videos into `datasets/vidvrd/videos`. Unzip the annotations into `datasets/vidvrd/annotations`.
 2. Go to the `datasets` directory and run the following command to decode the videos into frames.
    ```
    python vidvrd_video_to_frames.py
    ```
-3. Extract visual features from gt bounding boxes. We follow Gao's method from https://github.com/Dawn-LX/VidVRD-tracklets. Because Gao did not provide the trained checkpoints, we trained the model ourselves. Download [COCO](https://cocodataset.org/) and put the dataset into `datasets/coco`. Step into `datasets/mega` and run the command to train the detector.
+3. Extract visual features from gt bounding boxes. We follow Gao's method from https://github.com/Dawn-LX/VidVRD-tracklets. Because Gao did not provide the trained checkpoints, we trained the model ourselves. Download [COCO 2014](https://cocodataset.org/) and put the dataset into `datasets/coco`. Step into `datasets/mega` and run the command to extract coco annotations.
+   ```
+   python extract_coco.py
+   ```
+   Then train the detector.
    ```
    bash scripts/train_mega_vidvrd.sh 2 [gpu_ids]
    ```
