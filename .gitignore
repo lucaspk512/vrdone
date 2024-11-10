@@ -4,6 +4,7 @@
 /remove_unnecessary.sh
 /VidVRD_helper
 /temp.py
+/upload_dataset.ipynb
 
 # datasets
 /datasets/coco

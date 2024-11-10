@@ -1,13 +1,6 @@
 # VrdONE: One-stage Video Visual Relation Detection
 Pytorch Implementation of ACM MM 2024 paper **"VrdONE: One-stage Video Visual Relation Detection"**.
 
-<!-- <p align="center">
-<a href="https://arxiv.org/abs/2104.14222"><img  src="https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg" ></a>
-<a href="https://opensource.org/licenses/MIT"><img  src="https://img.shields.io/badge/license-MIT-blue"></a>
-<a href="https://dl.acm.org/doi/10.1145/3474085.3475512"><img  src="https://img.shields.io/static/v1?label=inproceedings&message=Paper&color=orange"></a>
-<a href="https://paperswithcode.com/sota/image-matting-on-p3m-10k"><img src="https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/privacy-preserving-portrait-matting/image-matting-on-p3m-10k"></a>
-</p> -->
-
 [[`arXiv`]](https://arxiv.org/abs/2408.09408) [[`ACM MM`]](https://dl.acm.org/doi/10.1145/3664647.3680833)
 
 <div align="center">
