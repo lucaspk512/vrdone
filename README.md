@@ -102,7 +102,7 @@ Install `ffmpeg` using `sudo apt-get install ffmpeg`. The organization of datase
    ```
    python prepare_vidor_proposal.py
    ```
-5. For the vrdone-x, we need to extract the clip features. First, step into the repository of [CLIP](https://github.com/openai/CLIP) and install it. Second, extract the features for training and evaluation respectively. We step into `datasets/mega`, run
+5. For the vrdone-x, we need to extract the clip features. First, install [CLIP](https://github.com/openai/CLIP). Second, extract the features for training and evaluation respectively. We step into `datasets/mega`, run
    ```
    CUDA_VISIBLE_DEVICES=[gpu_id] python -W ignore extract_gt_clip_features_vidor.py
    ```
@@ -143,7 +143,7 @@ Install `ffmpeg` using `sudo apt-get install ffmpeg`. The organization of datase
    ```
 5. For the proposal features, we further need to process them. Step into `datasets/mega` and run:
    ```
-   bash extract_vidvrd_val.sh [gpu_id]
+   python -W ignore extract_test_features_vidvrd.py --gpu_id ${gpu_id}
    ```
    Or we can download our extracted features from [Hugging Face](https://huggingface.co/datasets/guacamole99/vrdone_features) and unzip it into the corresponding place.
 
@@ -198,6 +198,7 @@ Install `ffmpeg` using `sudo apt-get install ffmpeg`. The organization of datase
    ```
    bash scripts/eval_vidvrd_multi.sh [gpu_id]
    ```
+   When using our provided model, don't forget to replace the config of `dataset_config.test_boxfeatures_dir` to the path of our provided data.
 
 ## Model Zoo
 Hugging Face model repository: https://huggingface.co/guacamole99/vrdone.
